@@ -1,3 +1,11 @@
+# Environment variables
+.env.json
+
+# .env.json should be in following format
+# {
+#   "STEAM_API_KEY": "XXXXXXXXXXXX"
+# }
+
 # Miscellaneous
 *.class
 *.log
