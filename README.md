@@ -40,18 +40,6 @@ cd backlogforge
 flutter pub get
 ```
 
-### Configure environment variables
-
-BacklogForge reads secrets at build time using `--dart-define-from-file`. Create a file named `.env.json` in the project root — this file is gitignored and must never be committed.
-
-```json
-{
-  "STEAM_API_KEY": "your_steam_api_key_here"
-}
-```
-
-You can obtain a Steam API key from the [Steam Web API portal](https://steamcommunity.com/dev/apikey). Set the domain to `localhost` for local development.
-
 ### Generate database code
 
 BacklogForge uses Drift for its local database. The generated files must be built before the first run.
@@ -60,9 +48,11 @@ BacklogForge uses Drift for its local database. The generated files must be buil
 dart run build_runner build
 ```
 
-### Backend proxy (optional — self-hosted)
+### Backend setup
 
-If you want to run it yourself:
+The app requires a running backend server for Steam API calls. The backend is hosted at `backlogforge.onrender.com` by default.
+
+To self-host, deploy your own instance of `server/app.py`:
 
 ```bash
 cd server
@@ -70,7 +60,7 @@ pip install -r requirements.txt
 flask run
 ```
 
-Then update the `_baseUrl` constant in `lib/services/hltb_service.dart` to point at your local instance.
+Then update the `_backendUrl` constant in `lib/services/steam_service.dart` and `lib/services/hltb_service.dart` to point at your backend.
 
 ---
 
@@ -78,24 +68,22 @@ Then update the `_baseUrl` constant in `lib/services/hltb_service.dart` to point
 
 ### Run in debug mode
 
-All run and build commands must pass the environment file using `--dart-define-from-file`. The app will not have access to your Steam API key without this flag.
-
 ```bash
-flutter run --dart-define-from-file=.env.json
+flutter run
 ```
 
 ### Build for a specific platform
 
 ```bash
 # Android
-flutter build apk --dart-define-from-file=.env.json
-flutter build appbundle --dart-define-from-file=.env.json
+flutter build apk
+flutter build appbundle
 
 # Windows
-flutter build windows --dart-define-from-file=.env.json
+flutter build windows
 
 # Linux
-flutter build linux --dart-define-from-file=.env.json
+flutter build linux
 ```
 
 On first launch, sign in with your Steam account. BacklogForge will sync your library and begin fetching completion time estimates in the background. Games are sorted into four tabs: **Backlog**, **Playing**, **Completed**, and **All**.
@@ -131,6 +119,29 @@ Use the refresh button in the toolbar to re-sync with Steam at any time. Games c
 | Proxy backend | Python, Flask, howlongtobeatpy |
 | Image caching | cached_network_image |
 | Platforms | Android, iOS, Windows, Linux, macOS |
+
+---
+
+## Environment Setup
+
+### Steam API Key (Backend)
+
+The backend server needs a Steam API key to fetch user game libraries. If you are self-hosting the backend:
+
+1. Obtain a key from the [Steam Web API portal](https://steamcommunity.com/dev/apikey)
+2. Set the domain to your backend URL or `localhost` for local development
+
+**On Render (cloud deployment):**
+- Go to your service dashboard
+- Navigate to **Environment** → **Add Environment Variable**
+- Add `STEAM_API_KEY` with your API key value
+- Redeploy the service
+
+**Locally (for development):**
+- Create a `.env` file in the `server/` directory:
+  ```
+  STEAM_API_KEY=your_api_key_here
+  ```
 
 ---
 
