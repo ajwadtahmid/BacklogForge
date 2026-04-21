@@ -24,7 +24,7 @@ jobs:
         run: dart run build_runner build
 
       - name: Build Windows
-        run: flutter build windows --release
+        run: flutter build windows --release -v
 
       - name: Check build output
         run: |
@@ -32,7 +32,8 @@ jobs:
             Write-Host "Build output exists"
             Get-ChildItem -Recurse "build/windows/runner/Release" | Select-Object FullName
           } else {
-            Write-Host "ERROR: Build output not found!"
+            Write-Host "ERROR: Build output not found! Checking available directories:"
+            Get-ChildItem -Recurse "build" -Directory | Select-Object FullName
             exit 1
           }
 
@@ -136,12 +137,8 @@ jobs:
 
           # Build AppImage
           export VERSION="${GITHUB_REF#refs/tags/v}"
-          export OUTPUT_NAME="BacklogForge-${VERSION}-x86_64.AppImage"
           ./linuxdeploy/linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
-            --executable AppDir/usr/bin/backlogforge \
-            --desktop-file AppDir/usr/share/applications/com.example.backlogforge.desktop \
-            --plugin appimage \
             --output appimage \
             -v 2
 
