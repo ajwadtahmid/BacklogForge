@@ -149,6 +149,17 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _playStyleMeta = const VerificationMeta(
+    'playStyle',
+  );
+  @override
+  late final GeneratedColumn<String> playStyle = GeneratedColumn<String>(
+    'play_style',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _manualOverrideMeta = const VerificationMeta(
     'manualOverride',
   );
@@ -179,6 +190,7 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     completedAt,
     lastPlayedAt,
     hltbImageUrl,
+    playStyle,
     manualOverride,
   ];
   @override
@@ -297,6 +309,12 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
         ),
       );
     }
+    if (data.containsKey('play_style')) {
+      context.handle(
+        _playStyleMeta,
+        playStyle.isAcceptableOrUnknown(data['play_style']!, _playStyleMeta),
+      );
+    }
     if (data.containsKey('manual_override')) {
       context.handle(
         _manualOverrideMeta,
@@ -371,6 +389,10 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
         DriftSqlType.string,
         data['${effectivePrefix}hltb_image_url'],
       ),
+      playStyle: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}play_style'],
+      ),
       manualOverride: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}manual_override'],
@@ -398,6 +420,7 @@ class Game extends DataClass implements Insertable<Game> {
   final DateTime? completedAt;
   final DateTime? lastPlayedAt;
   final String? hltbImageUrl;
+  final String? playStyle;
   final bool manualOverride;
   const Game({
     required this.id,
@@ -413,6 +436,7 @@ class Game extends DataClass implements Insertable<Game> {
     this.completedAt,
     this.lastPlayedAt,
     this.hltbImageUrl,
+    this.playStyle,
     required this.manualOverride,
   });
   @override
@@ -442,6 +466,9 @@ class Game extends DataClass implements Insertable<Game> {
     }
     if (!nullToAbsent || hltbImageUrl != null) {
       map['hltb_image_url'] = Variable<String>(hltbImageUrl);
+    }
+    if (!nullToAbsent || playStyle != null) {
+      map['play_style'] = Variable<String>(playStyle);
     }
     map['manual_override'] = Variable<bool>(manualOverride);
     return map;
@@ -474,6 +501,9 @@ class Game extends DataClass implements Insertable<Game> {
       hltbImageUrl: hltbImageUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(hltbImageUrl),
+      playStyle: playStyle == null && nullToAbsent
+          ? const Value.absent()
+          : Value(playStyle),
       manualOverride: Value(manualOverride),
     );
   }
@@ -499,6 +529,7 @@ class Game extends DataClass implements Insertable<Game> {
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
       lastPlayedAt: serializer.fromJson<DateTime?>(json['lastPlayedAt']),
       hltbImageUrl: serializer.fromJson<String?>(json['hltbImageUrl']),
+      playStyle: serializer.fromJson<String?>(json['playStyle']),
       manualOverride: serializer.fromJson<bool>(json['manualOverride']),
     );
   }
@@ -519,6 +550,7 @@ class Game extends DataClass implements Insertable<Game> {
       'completedAt': serializer.toJson<DateTime?>(completedAt),
       'lastPlayedAt': serializer.toJson<DateTime?>(lastPlayedAt),
       'hltbImageUrl': serializer.toJson<String?>(hltbImageUrl),
+      'playStyle': serializer.toJson<String?>(playStyle),
       'manualOverride': serializer.toJson<bool>(manualOverride),
     };
   }
@@ -537,6 +569,7 @@ class Game extends DataClass implements Insertable<Game> {
     Value<DateTime?> completedAt = const Value.absent(),
     Value<DateTime?> lastPlayedAt = const Value.absent(),
     Value<String?> hltbImageUrl = const Value.absent(),
+    Value<String?> playStyle = const Value.absent(),
     bool? manualOverride,
   }) => Game(
     id: id ?? this.id,
@@ -558,6 +591,7 @@ class Game extends DataClass implements Insertable<Game> {
     completedAt: completedAt.present ? completedAt.value : this.completedAt,
     lastPlayedAt: lastPlayedAt.present ? lastPlayedAt.value : this.lastPlayedAt,
     hltbImageUrl: hltbImageUrl.present ? hltbImageUrl.value : this.hltbImageUrl,
+    playStyle: playStyle.present ? playStyle.value : this.playStyle,
     manualOverride: manualOverride ?? this.manualOverride,
   );
   Game copyWithCompanion(GamesCompanion data) {
@@ -589,6 +623,7 @@ class Game extends DataClass implements Insertable<Game> {
       hltbImageUrl: data.hltbImageUrl.present
           ? data.hltbImageUrl.value
           : this.hltbImageUrl,
+      playStyle: data.playStyle.present ? data.playStyle.value : this.playStyle,
       manualOverride: data.manualOverride.present
           ? data.manualOverride.value
           : this.manualOverride,
@@ -611,6 +646,7 @@ class Game extends DataClass implements Insertable<Game> {
           ..write('completedAt: $completedAt, ')
           ..write('lastPlayedAt: $lastPlayedAt, ')
           ..write('hltbImageUrl: $hltbImageUrl, ')
+          ..write('playStyle: $playStyle, ')
           ..write('manualOverride: $manualOverride')
           ..write(')'))
         .toString();
@@ -631,6 +667,7 @@ class Game extends DataClass implements Insertable<Game> {
     completedAt,
     lastPlayedAt,
     hltbImageUrl,
+    playStyle,
     manualOverride,
   );
   @override
@@ -650,6 +687,7 @@ class Game extends DataClass implements Insertable<Game> {
           other.completedAt == this.completedAt &&
           other.lastPlayedAt == this.lastPlayedAt &&
           other.hltbImageUrl == this.hltbImageUrl &&
+          other.playStyle == this.playStyle &&
           other.manualOverride == this.manualOverride);
 }
 
@@ -667,6 +705,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
   final Value<DateTime?> completedAt;
   final Value<DateTime?> lastPlayedAt;
   final Value<String?> hltbImageUrl;
+  final Value<String?> playStyle;
   final Value<bool> manualOverride;
   const GamesCompanion({
     this.id = const Value.absent(),
@@ -682,6 +721,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
     this.completedAt = const Value.absent(),
     this.lastPlayedAt = const Value.absent(),
     this.hltbImageUrl = const Value.absent(),
+    this.playStyle = const Value.absent(),
     this.manualOverride = const Value.absent(),
   });
   GamesCompanion.insert({
@@ -698,6 +738,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
     this.completedAt = const Value.absent(),
     this.lastPlayedAt = const Value.absent(),
     this.hltbImageUrl = const Value.absent(),
+    this.playStyle = const Value.absent(),
     this.manualOverride = const Value.absent(),
   }) : steamId = Value(steamId),
        appId = Value(appId),
@@ -717,6 +758,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
     Expression<DateTime>? completedAt,
     Expression<DateTime>? lastPlayedAt,
     Expression<String>? hltbImageUrl,
+    Expression<String>? playStyle,
     Expression<bool>? manualOverride,
   }) {
     return RawValuesInsertable({
@@ -733,6 +775,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
       if (completedAt != null) 'completed_at': completedAt,
       if (lastPlayedAt != null) 'last_played_at': lastPlayedAt,
       if (hltbImageUrl != null) 'hltb_image_url': hltbImageUrl,
+      if (playStyle != null) 'play_style': playStyle,
       if (manualOverride != null) 'manual_override': manualOverride,
     });
   }
@@ -751,6 +794,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
     Value<DateTime?>? completedAt,
     Value<DateTime?>? lastPlayedAt,
     Value<String?>? hltbImageUrl,
+    Value<String?>? playStyle,
     Value<bool>? manualOverride,
   }) {
     return GamesCompanion(
@@ -767,6 +811,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
       completedAt: completedAt ?? this.completedAt,
       lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
       hltbImageUrl: hltbImageUrl ?? this.hltbImageUrl,
+      playStyle: playStyle ?? this.playStyle,
       manualOverride: manualOverride ?? this.manualOverride,
     );
   }
@@ -813,6 +858,9 @@ class GamesCompanion extends UpdateCompanion<Game> {
     if (hltbImageUrl.present) {
       map['hltb_image_url'] = Variable<String>(hltbImageUrl.value);
     }
+    if (playStyle.present) {
+      map['play_style'] = Variable<String>(playStyle.value);
+    }
     if (manualOverride.present) {
       map['manual_override'] = Variable<bool>(manualOverride.value);
     }
@@ -835,6 +883,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
           ..write('completedAt: $completedAt, ')
           ..write('lastPlayedAt: $lastPlayedAt, ')
           ..write('hltbImageUrl: $hltbImageUrl, ')
+          ..write('playStyle: $playStyle, ')
           ..write('manualOverride: $manualOverride')
           ..write(')'))
         .toString();
@@ -1268,6 +1317,7 @@ typedef $$GamesTableCreateCompanionBuilder =
       Value<DateTime?> completedAt,
       Value<DateTime?> lastPlayedAt,
       Value<String?> hltbImageUrl,
+      Value<String?> playStyle,
       Value<bool> manualOverride,
     });
 typedef $$GamesTableUpdateCompanionBuilder =
@@ -1285,6 +1335,7 @@ typedef $$GamesTableUpdateCompanionBuilder =
       Value<DateTime?> completedAt,
       Value<DateTime?> lastPlayedAt,
       Value<String?> hltbImageUrl,
+      Value<String?> playStyle,
       Value<bool> manualOverride,
     });
 
@@ -1358,6 +1409,11 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
 
   ColumnFilters<String> get hltbImageUrl => $composableBuilder(
     column: $table.hltbImageUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get playStyle => $composableBuilder(
+    column: $table.playStyle,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1441,6 +1497,11 @@ class $$GamesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get playStyle => $composableBuilder(
+    column: $table.playStyle,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get manualOverride => $composableBuilder(
     column: $table.manualOverride,
     builder: (column) => ColumnOrderings(column),
@@ -1509,6 +1570,9 @@ class $$GamesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get playStyle =>
+      $composableBuilder(column: $table.playStyle, builder: (column) => column);
+
   GeneratedColumn<bool> get manualOverride => $composableBuilder(
     column: $table.manualOverride,
     builder: (column) => column,
@@ -1556,6 +1620,7 @@ class $$GamesTableTableManager
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<DateTime?> lastPlayedAt = const Value.absent(),
                 Value<String?> hltbImageUrl = const Value.absent(),
+                Value<String?> playStyle = const Value.absent(),
                 Value<bool> manualOverride = const Value.absent(),
               }) => GamesCompanion(
                 id: id,
@@ -1571,6 +1636,7 @@ class $$GamesTableTableManager
                 completedAt: completedAt,
                 lastPlayedAt: lastPlayedAt,
                 hltbImageUrl: hltbImageUrl,
+                playStyle: playStyle,
                 manualOverride: manualOverride,
               ),
           createCompanionCallback:
@@ -1588,6 +1654,7 @@ class $$GamesTableTableManager
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<DateTime?> lastPlayedAt = const Value.absent(),
                 Value<String?> hltbImageUrl = const Value.absent(),
+                Value<String?> playStyle = const Value.absent(),
                 Value<bool> manualOverride = const Value.absent(),
               }) => GamesCompanion.insert(
                 id: id,
@@ -1603,6 +1670,7 @@ class $$GamesTableTableManager
                 completedAt: completedAt,
                 lastPlayedAt: lastPlayedAt,
                 hltbImageUrl: hltbImageUrl,
+                playStyle: playStyle,
                 manualOverride: manualOverride,
               ),
           withReferenceMapper: (p0) => p0

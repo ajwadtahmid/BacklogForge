@@ -1,5 +1,6 @@
 import '../services/database/app_database.dart';
 import 'steam_game.dart';
+import 'play_style.dart';
 
 extension GameArtwork on Game {
   /// Returns the display artwork URL for this game.
@@ -10,4 +11,14 @@ extension GameArtwork on Game {
     return hltbImageUrl ??
         'https://placehold.co/460x215/2F2F2F/FFFFFF/png?text=No+Artwork';
   }
+
+  /// Hours target for the progress bar, resolved from the game's stored play style.
+  /// Falls back through the chain if the preferred estimate is missing.
+  double? get targetHours => switch (playStyle.toPlayStyle) {
+        PlayStyle.extended =>
+          extendedHours ?? essentialHours,
+        PlayStyle.completionist =>
+          completionistHours ?? extendedHours ?? essentialHours,
+        PlayStyle.essential => essentialHours,
+      };
 }

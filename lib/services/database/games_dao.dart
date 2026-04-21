@@ -5,11 +5,12 @@ import 'tables.dart';
 import '../hltb_service.dart';
 import '../status_calculator.dart';
 import '../../models/time_to_beat.dart';
+import '../../models/game_status.dart';
 
 part 'games_dao.g.dart';
 
 /// Sort options available in the backlog and completed tabs.
-enum SortMode { alphabetical, shortest, longest, mostPlayed, neglected }
+enum SortMode { alphabetical, progress, shortest, longest, mostPlayed, neglected }
 
 @DriftAccessor(tables: [Games])
 class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
@@ -51,6 +52,7 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
 
   /// Completed tab: finished games, plus any completed game the user is
   /// currently re-playing (status='playing', completedAt IS NOT NULL).
+  /// Re-playing games are pinned to the top.
   Future<List<Game>> getCompleted(String steamId) {
     return (select(games)
           ..where((g) =>
@@ -58,6 +60,8 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
               (g.status.equals('completed') |
                   (g.status.equals('playing') & g.completedAt.isNotNull())))
           ..orderBy([
+            // 'playing' > 'completed' alphabetically — DESC pins re-playing games.
+            (g) => OrderingTerm.desc(g.status),
             (g) => OrderingTerm(
               expression: g.completedAt,
               mode: OrderingMode.desc,
@@ -119,12 +123,30 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
     final thresholdStr = settings?.completionThreshold ?? 'essential';
     final threshold = _parseThreshold(thresholdStr);
 
+    final now = DateTime.now();
     await db.transaction(() async {
       for (final game in allGames) {
-        if (game.manualOverride) continue;
+        // A completed game the user deliberately re-marked as "playing" keeps
+        // its completedAt so it stays in the completed tab. Don't override it.
+        if (game.manualOverride &&
+            game.status == 'playing' &&
+            game.completedAt != null) {
+          continue;
+        }
+
         final newStatus = calculateStatus(game, threshold);
+        if (newStatus.name == game.status) continue;
+
         await (db.update(db.games)..where((g) => g.id.equals(game.id))).write(
-          GamesCompanion(status: Value(newStatus.name)),
+          GamesCompanion(
+            status: Value(newStatus.name),
+            // Stamp completedAt the first time a game is auto-completed so the
+            // completed tab can sort it by finish date.
+            completedAt: newStatus == GameStatus.completed &&
+                    game.completedAt == null
+                ? Value(now)
+                : const Value.absent(),
+          ),
         );
       }
     });
@@ -173,6 +195,20 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
         return [
           (g) => OrderingTerm(expression: g.name, mode: OrderingMode.asc)
         ];
+      case SortMode.progress:
+        // Sort by (hours played) / (target hours from stored play_style), DESC.
+        // Games with no HLTB estimate sink to the bottom (9999 denominator).
+        return [
+          (g) => OrderingTerm.desc(
+                const CustomExpression<double>(
+                  "CAST(playtime_minutes AS REAL) / 60.0 / "
+                  "CASE play_style "
+                  "WHEN 'extended' THEN COALESCE(extended_hours, essential_hours, 9999.0) "
+                  "WHEN 'completionist' THEN COALESCE(completionist_hours, extended_hours, essential_hours, 9999.0) "
+                  "ELSE COALESCE(essential_hours, 9999.0) END",
+                ),
+              ),
+        ];
       case SortMode.shortest:
         return [
           (g) => OrderingTerm(
@@ -192,8 +228,9 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
     }
   }
 
-  /// Backlog games sorted by [mode]. Neglected mode additionally filters to
-  /// games with zero playtime. Excludes completed games being re-played.
+  /// Backlog games sorted by [mode]. Playing games are always pinned to the
+  /// top regardless of sort mode. Neglected mode additionally filters to games
+  /// with zero playtime. Excludes completed games being re-played.
   Future<List<Game>> backlogSorted(SortMode mode, String steamId) {
     return (select(games)
           ..where((g) {
@@ -204,18 +241,26 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
                 ? isBacklog & g.playtimeMinutes.equals(0)
                 : isBacklog;
           })
-          ..orderBy(_orderFor(mode)))
+          // Playing games float to top ('playing' > 'backlog' alphabetically).
+          ..orderBy([
+            (g) => OrderingTerm.desc(g.status),
+            ..._orderFor(mode),
+          ]))
         .get();
   }
 
   /// Completed games sorted by [mode], including completed games being re-played.
+  /// Re-playing games are always pinned to the top regardless of sort mode.
   Future<List<Game>> completedSorted(SortMode mode, String steamId) {
     return (select(games)
           ..where((g) =>
               g.steamId.equals(steamId) &
               (g.status.equals('completed') |
                   (g.status.equals('playing') & g.completedAt.isNotNull())))
-          ..orderBy(_orderFor(mode)))
+          ..orderBy([
+            (g) => OrderingTerm.desc(g.status),
+            ..._orderFor(mode),
+          ]))
         .get();
   }
 }

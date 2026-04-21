@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "backlogforge" "\0"
+            VALUE "FileDescription", "BacklogForge" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "backlogforge" "\0"
+            VALUE "InternalName", "BacklogForge" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
             VALUE "OriginalFilename", "backlogforge.exe" "\0"
-            VALUE "ProductName", "backlogforge" "\0"
+            VALUE "ProductName", "BacklogForge" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -4,17 +4,24 @@ import '../services/database/app_database.dart';
 enum CompletionThreshold { essential, extended, completionist }
 
 /// Derives a game's computed status from its playtime and time-to-beat data.
-/// Manual overrides bypass this calculation and return the stored status directly.
+///
+/// Completion check always runs first: if the user has logged enough hours the
+/// game is marked completed regardless of any manual override. Only below the
+/// threshold does the override apply (preserving e.g. a "playing" state the
+/// user set manually).
 GameStatus calculateStatus(Game g, CompletionThreshold t) {
+  final target = _resolveTarget(g, t);
+
+  // Auto-complete takes priority over manual overrides.
+  if (target != null && (g.playtimeMinutes / 60) >= target) {
+    return GameStatus.completed;
+  }
+
+  // Below threshold: honour the user's manually chosen status.
   if (g.manualOverride) {
     return g.status.toGameStatus;
   }
 
-  final target = _resolveTarget(g, t);
-
-  if (target != null && (g.playtimeMinutes / 60) >= target) {
-    return GameStatus.completed;
-  }
   return GameStatus.backlog;
 }
 

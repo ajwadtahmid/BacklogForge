@@ -7,7 +7,7 @@ import 'stats_dao.dart';
 
 part 'app_database.g.dart';
 
-const int schemaVersionNumber = 6;
+const int schemaVersionNumber = 7;
 
 @DriftDatabase(tables: [Games, AppSettings], daos: [GamesDao, SettingsDao, StatsDao])
 class AppDatabase extends _$AppDatabase {
@@ -44,6 +44,9 @@ class AppDatabase extends _$AppDatabase {
       }
       if (fromVersion < 6) {
         await m.addColumn(games, games.hltbImageUrl);
+      }
+      if (fromVersion < 7) {
+        await m.addColumn(games, games.playStyle);
       }
     },
   );

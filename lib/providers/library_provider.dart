@@ -54,12 +54,6 @@ class SyncNotifier extends Notifier<SyncState> {
       if (steamId == null) throw Exception('Not signed in');
 
       final db = ref.read(databaseProvider);
-      bool hasChanges = false;
-
-      final existing = await db.gamesDao.getAllGames(steamId);
-      final oldPlaytime = {
-        for (final g in existing) g.appId: g.playtimeMinutes,
-      };
 
       final steamGames = await _steamService.getOwnedGames(steamId);
       final now = DateTime.now();
@@ -88,26 +82,17 @@ class SyncNotifier extends Notifier<SyncState> {
         }
       });
 
-      for (final game in steamGames) {
-        final old = oldPlaytime[game.appId];
-        if (old == null || old != game.playtimeMinutes) {
-          hasChanges = true;
-          break;
-        }
-      }
-
       final allGames = await db.gamesDao.getAllGames(steamId);
-      final newTimeToBeat = await db.gamesDao.fetchAllTimeToBeat(allGames);
-      if (newTimeToBeat > 0) hasChanges = true;
+      await db.gamesDao.fetchAllTimeToBeat(allGames);
 
-      if (hasChanges) {
-        await db.gamesDao.recalculateAllStatuses(steamId);
-        ref.invalidate(backlogProvider);
-        ref.invalidate(completedProvider);
-        ref.invalidate(statsProvider);
-        ref.invalidate(backlogSortedProvider);
-        ref.invalidate(completedSortedProvider);
-      }
+      // Always recalculate — status correctness matters more than skipping a
+      // cheap pass. The recalculator already diffs and skips unchanged rows.
+      await db.gamesDao.recalculateAllStatuses(steamId);
+      ref.invalidate(backlogProvider);
+      ref.invalidate(completedProvider);
+      ref.invalidate(statsProvider);
+      ref.invalidate(backlogSortedProvider);
+      ref.invalidate(completedSortedProvider);
 
       state = const SyncState();
     } catch (e) {

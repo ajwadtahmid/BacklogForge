@@ -148,6 +148,7 @@ class _BacklogTabState extends ConsumerState<BacklogTab> {
           child: SegmentedButton<SortMode>(
             segments: const [
               ButtonSegment(value: SortMode.alphabetical, label: Text('A-Z')),
+              ButtonSegment(value: SortMode.progress, label: Text('Progress')),
               ButtonSegment(value: SortMode.shortest, label: Text('Shortest')),
               ButtonSegment(value: SortMode.longest, label: Text('Longest')),
               ButtonSegment(value: SortMode.mostPlayed, label: Text('Played')),
@@ -242,6 +243,7 @@ class _CompletedTabState extends ConsumerState<CompletedTab> {
           child: SegmentedButton<SortMode>(
             segments: const [
               ButtonSegment(value: SortMode.alphabetical, label: Text('A-Z')),
+              ButtonSegment(value: SortMode.progress, label: Text('Progress')),
               ButtonSegment(value: SortMode.shortest, label: Text('Shortest')),
               ButtonSegment(value: SortMode.longest, label: Text('Longest')),
               ButtonSegment(value: SortMode.mostPlayed, label: Text('Played')),

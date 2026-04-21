@@ -18,6 +18,8 @@ class Games extends Table {
   DateTimeColumn get completedAt => dateTime().nullable()();
   DateTimeColumn get lastPlayedAt => dateTime().nullable()();
   TextColumn get hltbImageUrl => text().nullable()();
+  // 'essential' | 'extended' | 'completionist' | null (defaults to essential).
+  TextColumn get playStyle => text().nullable()();
   BoolColumn get manualOverride =>
       boolean().withDefault(const Constant(false))();
 
