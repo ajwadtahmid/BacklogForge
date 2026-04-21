@@ -1,21 +1,33 @@
+/// Returns the Steam CDN header image URL for the given [appId].
+String steamArtworkUrl(int appId) =>
+    'https://cdn.akamai.steamstatic.com/steam/apps/$appId/header.jpg';
+
+/// Represents a single game from the Steam GetOwnedGames API response.
 class SteamGame {
   final int appId;
   final String name;
   final int playtimeMinutes;
+  final DateTime? lastPlayedAt;
 
   SteamGame({
     required this.appId,
     required this.name,
     required this.playtimeMinutes,
+    this.lastPlayedAt,
   });
 
-  factory SteamGame.fromJson(Map<String, dynamic> j) => SteamGame(
-    appId: j['appid'] as int,
-    name: j['name'] as String,
-    playtimeMinutes: j['playtime_forever'] as int,
-  );
+  factory SteamGame.fromJson(Map<String, dynamic> j) {
+    final rtime = j['rtime_last_played'] as int?;
+    return SteamGame(
+      appId: j['appid'] as int,
+      name: j['name'] as String,
+      playtimeMinutes: j['playtime_forever'] as int,
+      // Steam returns 0 for rtime_last_played when a game has never been launched.
+      lastPlayedAt: (rtime != null && rtime > 0)
+          ? DateTime.fromMillisecondsSinceEpoch(rtime * 1000)
+          : null,
+    );
+  }
 
-  /// Returns the CDN URL for the game's header image from Steam.
-  String get artworkUrl =>
-      'https://cdn.akamai.steamstatic.com/steam/apps/$appId/header.jpg';
+  String get artworkUrl => steamArtworkUrl(appId);
 }

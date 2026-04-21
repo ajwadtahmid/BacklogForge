@@ -3,6 +3,8 @@ from howlongtobeatpy import HowLongToBeat, HowLongToBeatEntry
 
 app = Flask(__name__)
 
+_MAX_QUERY_LEN = 100
+
 
 def _entry_to_dict(entry: HowLongToBeatEntry) -> dict:
     return {
@@ -17,12 +19,16 @@ def _entry_to_dict(entry: HowLongToBeatEntry) -> dict:
 
 @app.route('/search')
 def search():
-    q = request.args.get('q', '').strip()
+    q = request.args.get('q', '').strip()[:_MAX_QUERY_LEN]
     limit = min(int(request.args.get('limit', 10)), 20)
     if not q:
         return jsonify([])
 
-    results = HowLongToBeat().search(q)
+    try:
+        results = HowLongToBeat().search(q)
+    except Exception:
+        return jsonify([])
+
     if not results:
         return jsonify([])
 
@@ -31,11 +37,16 @@ def search():
 
 @app.route('/lookup')
 def lookup():
-    q = request.args.get('q', '').strip()
+    """Returns the best match above a similarity threshold, or null."""
+    q = request.args.get('q', '').strip()[:_MAX_QUERY_LEN]
     if not q:
         return jsonify(None)
 
-    results = HowLongToBeat().search(q)
+    try:
+        results = HowLongToBeat().search(q)
+    except Exception:
+        return jsonify(None)
+
     if not results:
         return jsonify(None)
 

@@ -1,7 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:drift/drift.dart';
-import '../services/database/app_database.dart';
 import './database_provider.dart';
 
 /// Represents the user's authentication state: either signed out or signed in with a Steam ID.
@@ -23,6 +21,7 @@ class _SignedOut extends AuthState {
 }
 
 class _SignedIn extends AuthState {
+  @override
   final String steamId;
   const _SignedIn(this.steamId);
 }
@@ -41,9 +40,12 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
         : const AuthState.signedOut();
   }
 
-  /// Persists the Steam ID to secure storage and updates the auth state on successful sign-in.
+  /// Persists the Steam ID to secure storage, seeds settings for this user if
+  /// this is their first sign-in, then updates auth state.
   Future<void> completeSignIn(String steamId) async {
     await _secureStorage.write(key: _steamIdKey, value: steamId);
+    final db = ref.read(databaseProvider);
+    await db.settingsDao.seedIfAbsent(steamId);
     state = AsyncValue.data(AuthState.signedIn(steamId));
   }
 
@@ -60,23 +62,9 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
     state = AsyncValue.error(Exception(message), StackTrace.current);
   }
 
-  /// Clears all user data and persisted session, leaving zero trace for the next user.
-  /// Atomically wipes games and settings tables, re-seeds default settings, and clears auth token.
-  /// Ensures the app boots to a fresh onboarding screen next time.
+  /// Clears the auth token only. User data stays in the DB so re-signing in
+  /// is instant, and other users' data is unaffected.
   Future<void> signOut() async {
-    final db = ref.read(databaseProvider);
-
-    // Wipe all user data in a single atomic transaction.
-    await db.transaction(() async {
-      await db.delete(db.games).go();
-      await db.delete(db.appSettings).go();
-      // Re-seed the singleton settings row with defaults so the app boots cleanly.
-      await db.into(db.appSettings).insert(
-        AppSettingsCompanion.insert(id: const Value(1)),
-      );
-    });
-
-    // Clear the auth token from secure storage.
     await _secureStorage.delete(key: _steamIdKey);
     state = const AsyncValue.data(AuthState.signedOut());
   }

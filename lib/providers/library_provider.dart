@@ -4,23 +4,29 @@ import '../services/database/app_database.dart';
 import '../services/steam_service.dart';
 import 'database_provider.dart';
 import 'auth_provider.dart';
+import 'stats_provider.dart';
+import 'sort_provider.dart';
 
-/// Fetches backlog and playing games from the database.
-final backlogProvider = FutureProvider<List<Game>>((ref) {
+/// Provides the current user's backlog (backlog + playing) games.
+final backlogProvider = FutureProvider<List<Game>>((ref) async {
+  final auth = await ref.watch(authProvider.future);
+  final steamId = auth.steamId;
+  if (steamId == null) return [];
   final db = ref.watch(databaseProvider);
-  return db.gamesDao.getBacklog();
+  return db.gamesDao.getBacklog(steamId);
 });
 
-/// Fetches completed games from the database.
-final completedProvider = FutureProvider<List<Game>>((ref) {
+/// Provides the current user's completed games.
+final completedProvider = FutureProvider<List<Game>>((ref) async {
+  final auth = await ref.watch(authProvider.future);
+  final steamId = auth.steamId;
+  if (steamId == null) return [];
   final db = ref.watch(databaseProvider);
-  return db.gamesDao.getCompleted();
+  return db.gamesDao.getCompleted(steamId);
 });
 
-/// Tracks sync state: idle, syncing, or error.
 enum SyncStatus { idle, syncing, error }
 
-/// Represents the current state of a Steam library sync operation.
 class SyncState {
   final SyncStatus status;
   final String? errorMessage;
@@ -30,9 +36,11 @@ class SyncState {
 final syncStateProvider =
     NotifierProvider<SyncNotifier, SyncState>(SyncNotifier.new);
 
-/// Manages syncing the user's Steam game library with the local database.
-/// Fetches owned games and time-to-beat data, updating the database only when changes are detected.
+/// Orchestrates a full sync: fetches Steam library, upserts games, pulls
+/// missing HLTB data, then recalculates completion statuses.
 class SyncNotifier extends Notifier<SyncState> {
+  final _steamService = SteamService();
+
   @override
   SyncState build() => const SyncState();
 
@@ -46,41 +54,40 @@ class SyncNotifier extends Notifier<SyncState> {
       if (steamId == null) throw Exception('Not signed in');
 
       final db = ref.read(databaseProvider);
-      final steamService = SteamService();
       bool hasChanges = false;
 
-      // Snapshot current state for change detection
-      final existing = await db.gamesDao.getAllGames();
+      final existing = await db.gamesDao.getAllGames(steamId);
       final oldPlaytime = {
         for (final g in existing) g.appId: g.playtimeMinutes,
       };
 
-      // Fetch games from Steam API and batch upsert.
-      // On conflict (existing appId), only update name and playtime —
-      // preserves status, manualOverride, and time-to-beat data.
-      final steamGames = await steamService.getOwnedGames(steamId);
+      final steamGames = await _steamService.getOwnedGames(steamId);
       final now = DateTime.now();
+
+      // Upsert every Steam game: insert on first sync, update playtime on subsequent syncs.
       await db.transaction(() async {
         for (final game in steamGames) {
           await db.into(db.games).insert(
             GamesCompanion.insert(
+              steamId: steamId,
               appId: game.appId,
               name: game.name,
               playtimeMinutes: Value(game.playtimeMinutes),
+              lastPlayedAt: Value(game.lastPlayedAt),
               addedAt: now,
             ),
             onConflict: DoUpdate(
               (old) => GamesCompanion(
                 name: Value(game.name),
                 playtimeMinutes: Value(game.playtimeMinutes),
+                lastPlayedAt: Value(game.lastPlayedAt),
               ),
-              target: [db.games.appId],
+              target: [db.games.appId, db.games.steamId],
             ),
           );
         }
       });
 
-      // Detect changes: new games or updated playtime
       for (final game in steamGames) {
         final old = oldPlaytime[game.appId];
         if (old == null || old != game.playtimeMinutes) {
@@ -89,16 +96,17 @@ class SyncNotifier extends Notifier<SyncState> {
         }
       }
 
-      // Fetch time-to-beat data from IGDB (only for uncached games)
-      final allGames = await db.gamesDao.getAllGames();
+      final allGames = await db.gamesDao.getAllGames(steamId);
       final newTimeToBeat = await db.gamesDao.fetchAllTimeToBeat(allGames);
       if (newTimeToBeat > 0) hasChanges = true;
 
-      // Recalculate statuses only if something changed
       if (hasChanges) {
-        await db.gamesDao.recalculateAllStatuses();
+        await db.gamesDao.recalculateAllStatuses(steamId);
         ref.invalidate(backlogProvider);
         ref.invalidate(completedProvider);
+        ref.invalidate(statsProvider);
+        ref.invalidate(backlogSortedProvider);
+        ref.invalidate(completedSortedProvider);
       }
 
       state = const SyncState();
@@ -108,10 +116,13 @@ class SyncNotifier extends Notifier<SyncState> {
   }
 }
 
-/// Auto-syncs on first launch if the local DB is empty.
+/// Triggers an automatic sync on first launch if the local DB is empty for this user.
 final initialSyncProvider = FutureProvider<void>((ref) async {
+  final auth = await ref.watch(authProvider.future);
+  final steamId = auth.steamId;
+  if (steamId == null) return;
   final db = ref.watch(databaseProvider);
-  final games = await db.gamesDao.getAllGames();
+  final games = await db.gamesDao.getAllGames(steamId);
   if (games.isEmpty) {
     await ref.read(syncStateProvider.notifier).sync();
   }

@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/database/app_database.dart';
 import '../models/game.dart';
 import '../models/game_status.dart';
-import '../providers/game_actions_provider.dart'; // Adjust import as needed
+import '../providers/game_actions_provider.dart';
 
 /// A card widget displaying a game's cover art, name, and playtime progress.
 /// Games currently being played are highlighted with a green tint.
@@ -19,6 +19,62 @@ class GameCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Slidable(
       key: ValueKey(game.appId),
+      startActionPane: ActionPane(
+        motion: const BehindMotion(),
+        children: [
+          if (game.appId < 0)
+            SlidableAction(
+              onPressed: (_) async {
+                // Use the stable outer context, not the Slidable's ctx.
+                final messenger = ScaffoldMessenger.of(context);
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (dialogCtx) => AlertDialog(
+                    title: const Text('Delete game?'),
+                    content: Text('Remove "${game.name}" from your library?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogCtx, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogCtx, true),
+                        child: const Text('Delete',
+                            style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  try {
+                    await ref.read(gameActionsProvider).deleteGame(game);
+                  } catch (e) {
+                    messenger.showSnackBar(
+                      SnackBar(content: Text('Failed to delete: $e')),
+                    );
+                  }
+                }
+              },
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              icon: Icons.delete,
+              label: 'Delete',
+            )
+          else
+            SlidableAction(
+              onPressed: (_) => ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Steam games cannot be deleted from your library'),
+                  duration: Duration(seconds: 2),
+                ),
+              ),
+              backgroundColor: Colors.grey,
+              foregroundColor: Colors.white,
+              icon: Icons.lock,
+              label: 'Locked',
+            ),
+        ],
+      ),
       endActionPane: ActionPane(
         motion: const BehindMotion(),
         children: [
@@ -84,11 +140,11 @@ class GameCard extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  if (game.rushedHours != null)
+                  if (game.essentialHours != null)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: LinearProgressIndicator(
-                        value: ((game.playtimeMinutes / 60) / game.rushedHours!)
+                        value: ((game.playtimeMinutes / 60) / game.essentialHours!)
                             .clamp(0, 1),
                       ),
                     ),

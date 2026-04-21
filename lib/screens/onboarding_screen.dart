@@ -21,12 +21,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     setState(() => _busy = true);
     try {
       final svc = SteamAuthService();
-      final loginUrl = svc.buildLoginUrl();
+      final loginUrl = await svc.buildLoginUrl();
       await launchUrl(loginUrl, mode: LaunchMode.externalApplication);
       final redirect = await svc.awaitRedirect().timeout(
         const Duration(minutes: 2),
       );
-      final steamId = svc.extractSteamId(redirect);
+      final steamId = await svc.extractAndVerifySteamId(redirect);
       if (steamId == null) {
         ref.read(authProvider.notifier).failSignIn();
         return;
@@ -39,9 +39,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     } on SocketException {
       ref
           .read(authProvider.notifier)
-          .setError(
-            'Could not start the local redirect server. Is port 8080 in use?',
-          );
+          .setError('Could not start the local redirect server.');
     } catch (e) {
       ref.read(authProvider.notifier).setError('Unexpected error: $e');
     } finally {

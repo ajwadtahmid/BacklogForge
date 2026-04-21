@@ -1,12 +1,13 @@
 import '../models/game_status.dart';
 import '../services/database/app_database.dart';
 
-/// Represents the completion time threshold the user prefers for marking games as completed.
-enum CompletionThreshold { rushed, casually, completionist }
+enum CompletionThreshold { essential, extended, completionist }
 
+/// Derives a game's computed status from its playtime and time-to-beat data.
+/// Manual overrides bypass this calculation and return the stored status directly.
 GameStatus calculateStatus(Game g, CompletionThreshold t) {
   if (g.manualOverride) {
-    return g.status.toGameStatus; // always respect user choice
+    return g.status.toGameStatus;
   }
 
   final target = _resolveTarget(g, t);
@@ -18,15 +19,14 @@ GameStatus calculateStatus(Game g, CompletionThreshold t) {
 }
 
 /// Returns the target hours for the preferred threshold, falling back
-/// through casually -> rushed -> completionist if data is missing.
+/// through the remaining thresholds if the preferred data is missing.
 double? _resolveTarget(Game g, CompletionThreshold t) {
   final preferred = switch (t) {
-    CompletionThreshold.rushed => g.rushedHours,
-    CompletionThreshold.casually => g.casuallyHours,
+    CompletionThreshold.essential => g.essentialHours,
+    CompletionThreshold.extended => g.extendedHours,
     CompletionThreshold.completionist => g.completionistHours,
   };
   if (preferred != null) return preferred;
 
-  // Fallback chain: casually -> rushed -> completionist.
-  return g.casuallyHours ?? g.rushedHours ?? g.completionistHours;
+  return g.essentialHours ?? g.extendedHours ?? g.completionistHours;
 }

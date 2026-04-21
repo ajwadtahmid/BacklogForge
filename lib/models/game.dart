@@ -1,8 +1,13 @@
 import '../services/database/app_database.dart';
+import 'steam_game.dart';
 
-/// Returns the CDN URL for the game's header image from Steam.
 extension GameArtwork on Game {
-  String get artworkUrl => appId > 0
-      ? 'https://cdn.akamai.steamstatic.com/steam/apps/$appId/header.jpg'
-      : 'https://placehold.co/460x215/2F2F2F/FFFFFF/png?text=Steam+Game'; // manually-added games have no Steam CDN artwork
+  /// Returns the display artwork URL for this game.
+  /// Steam games use the Steam CDN header image; manually added games use
+  /// the HLTB image stored at insert time, falling back to a placeholder.
+  String get artworkUrl {
+    if (appId > 0) return steamArtworkUrl(appId);
+    return hltbImageUrl ??
+        'https://placehold.co/460x215/2F2F2F/FFFFFF/png?text=No+Artwork';
+  }
 }

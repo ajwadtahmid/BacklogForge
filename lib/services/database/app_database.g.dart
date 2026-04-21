@@ -21,6 +21,17 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
       'PRIMARY KEY AUTOINCREMENT',
     ),
   );
+  static const VerificationMeta _steamIdMeta = const VerificationMeta(
+    'steamId',
+  );
+  @override
+  late final GeneratedColumn<String> steamId = GeneratedColumn<String>(
+    'steam_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
   static const VerificationMeta _appIdMeta = const VerificationMeta('appId');
   @override
   late final GeneratedColumn<int> appId = GeneratedColumn<int>(
@@ -29,7 +40,6 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     false,
     type: DriftSqlType.int,
     requiredDuringInsert: true,
-    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
   );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
@@ -52,23 +62,23 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
-  static const VerificationMeta _rushedHoursMeta = const VerificationMeta(
-    'rushedHours',
+  static const VerificationMeta _essentialHoursMeta = const VerificationMeta(
+    'essentialHours',
   );
   @override
-  late final GeneratedColumn<double> rushedHours = GeneratedColumn<double>(
-    'rushed_hours',
+  late final GeneratedColumn<double> essentialHours = GeneratedColumn<double>(
+    'essential_hours',
     aliasedName,
     true,
     type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _casuallyHoursMeta = const VerificationMeta(
-    'casuallyHours',
+  static const VerificationMeta _extendedHoursMeta = const VerificationMeta(
+    'extendedHours',
   );
   @override
-  late final GeneratedColumn<double> casuallyHours = GeneratedColumn<double>(
-    'casually_hours',
+  late final GeneratedColumn<double> extendedHours = GeneratedColumn<double>(
+    'extended_hours',
     aliasedName,
     true,
     type: DriftSqlType.double,
@@ -117,6 +127,28 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _lastPlayedAtMeta = const VerificationMeta(
+    'lastPlayedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastPlayedAt = GeneratedColumn<DateTime>(
+    'last_played_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _hltbImageUrlMeta = const VerificationMeta(
+    'hltbImageUrl',
+  );
+  @override
+  late final GeneratedColumn<String> hltbImageUrl = GeneratedColumn<String>(
+    'hltb_image_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _manualOverrideMeta = const VerificationMeta(
     'manualOverride',
   );
@@ -135,15 +167,18 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    steamId,
     appId,
     name,
     playtimeMinutes,
-    rushedHours,
-    casuallyHours,
+    essentialHours,
+    extendedHours,
     completionistHours,
     status,
     addedAt,
     completedAt,
+    lastPlayedAt,
+    hltbImageUrl,
     manualOverride,
   ];
   @override
@@ -160,6 +195,14 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     final data = instance.toColumns(true);
     if (data.containsKey('id')) {
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('steam_id')) {
+      context.handle(
+        _steamIdMeta,
+        steamId.isAcceptableOrUnknown(data['steam_id']!, _steamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_steamIdMeta);
     }
     if (data.containsKey('app_id')) {
       context.handle(
@@ -186,21 +229,21 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
         ),
       );
     }
-    if (data.containsKey('rushed_hours')) {
+    if (data.containsKey('essential_hours')) {
       context.handle(
-        _rushedHoursMeta,
-        rushedHours.isAcceptableOrUnknown(
-          data['rushed_hours']!,
-          _rushedHoursMeta,
+        _essentialHoursMeta,
+        essentialHours.isAcceptableOrUnknown(
+          data['essential_hours']!,
+          _essentialHoursMeta,
         ),
       );
     }
-    if (data.containsKey('casually_hours')) {
+    if (data.containsKey('extended_hours')) {
       context.handle(
-        _casuallyHoursMeta,
-        casuallyHours.isAcceptableOrUnknown(
-          data['casually_hours']!,
-          _casuallyHoursMeta,
+        _extendedHoursMeta,
+        extendedHours.isAcceptableOrUnknown(
+          data['extended_hours']!,
+          _extendedHoursMeta,
         ),
       );
     }
@@ -236,6 +279,24 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
         ),
       );
     }
+    if (data.containsKey('last_played_at')) {
+      context.handle(
+        _lastPlayedAtMeta,
+        lastPlayedAt.isAcceptableOrUnknown(
+          data['last_played_at']!,
+          _lastPlayedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('hltb_image_url')) {
+      context.handle(
+        _hltbImageUrlMeta,
+        hltbImageUrl.isAcceptableOrUnknown(
+          data['hltb_image_url']!,
+          _hltbImageUrlMeta,
+        ),
+      );
+    }
     if (data.containsKey('manual_override')) {
       context.handle(
         _manualOverrideMeta,
@@ -251,12 +312,20 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {steamId, appId},
+  ];
+  @override
   Game map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return Game(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}id'],
+      )!,
+      steamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}steam_id'],
       )!,
       appId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
@@ -270,13 +339,13 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
         DriftSqlType.int,
         data['${effectivePrefix}playtime_minutes'],
       )!,
-      rushedHours: attachedDatabase.typeMapping.read(
+      essentialHours: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
-        data['${effectivePrefix}rushed_hours'],
+        data['${effectivePrefix}essential_hours'],
       ),
-      casuallyHours: attachedDatabase.typeMapping.read(
+      extendedHours: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
-        data['${effectivePrefix}casually_hours'],
+        data['${effectivePrefix}extended_hours'],
       ),
       completionistHours: attachedDatabase.typeMapping.read(
         DriftSqlType.double,
@@ -294,6 +363,14 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
         DriftSqlType.dateTime,
         data['${effectivePrefix}completed_at'],
       ),
+      lastPlayedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_played_at'],
+      ),
+      hltbImageUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}hltb_image_url'],
+      ),
       manualOverride: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}manual_override'],
@@ -309,41 +386,48 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
 
 class Game extends DataClass implements Insertable<Game> {
   final int id;
+  final String steamId;
   final int appId;
   final String name;
   final int playtimeMinutes;
-  final double? rushedHours;
-  final double? casuallyHours;
+  final double? essentialHours;
+  final double? extendedHours;
   final double? completionistHours;
   final String status;
   final DateTime addedAt;
   final DateTime? completedAt;
+  final DateTime? lastPlayedAt;
+  final String? hltbImageUrl;
   final bool manualOverride;
   const Game({
     required this.id,
+    required this.steamId,
     required this.appId,
     required this.name,
     required this.playtimeMinutes,
-    this.rushedHours,
-    this.casuallyHours,
+    this.essentialHours,
+    this.extendedHours,
     this.completionistHours,
     required this.status,
     required this.addedAt,
     this.completedAt,
+    this.lastPlayedAt,
+    this.hltbImageUrl,
     required this.manualOverride,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
+    map['steam_id'] = Variable<String>(steamId);
     map['app_id'] = Variable<int>(appId);
     map['name'] = Variable<String>(name);
     map['playtime_minutes'] = Variable<int>(playtimeMinutes);
-    if (!nullToAbsent || rushedHours != null) {
-      map['rushed_hours'] = Variable<double>(rushedHours);
+    if (!nullToAbsent || essentialHours != null) {
+      map['essential_hours'] = Variable<double>(essentialHours);
     }
-    if (!nullToAbsent || casuallyHours != null) {
-      map['casually_hours'] = Variable<double>(casuallyHours);
+    if (!nullToAbsent || extendedHours != null) {
+      map['extended_hours'] = Variable<double>(extendedHours);
     }
     if (!nullToAbsent || completionistHours != null) {
       map['completionist_hours'] = Variable<double>(completionistHours);
@@ -353,6 +437,12 @@ class Game extends DataClass implements Insertable<Game> {
     if (!nullToAbsent || completedAt != null) {
       map['completed_at'] = Variable<DateTime>(completedAt);
     }
+    if (!nullToAbsent || lastPlayedAt != null) {
+      map['last_played_at'] = Variable<DateTime>(lastPlayedAt);
+    }
+    if (!nullToAbsent || hltbImageUrl != null) {
+      map['hltb_image_url'] = Variable<String>(hltbImageUrl);
+    }
     map['manual_override'] = Variable<bool>(manualOverride);
     return map;
   }
@@ -360,15 +450,16 @@ class Game extends DataClass implements Insertable<Game> {
   GamesCompanion toCompanion(bool nullToAbsent) {
     return GamesCompanion(
       id: Value(id),
+      steamId: Value(steamId),
       appId: Value(appId),
       name: Value(name),
       playtimeMinutes: Value(playtimeMinutes),
-      rushedHours: rushedHours == null && nullToAbsent
+      essentialHours: essentialHours == null && nullToAbsent
           ? const Value.absent()
-          : Value(rushedHours),
-      casuallyHours: casuallyHours == null && nullToAbsent
+          : Value(essentialHours),
+      extendedHours: extendedHours == null && nullToAbsent
           ? const Value.absent()
-          : Value(casuallyHours),
+          : Value(extendedHours),
       completionistHours: completionistHours == null && nullToAbsent
           ? const Value.absent()
           : Value(completionistHours),
@@ -377,6 +468,12 @@ class Game extends DataClass implements Insertable<Game> {
       completedAt: completedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(completedAt),
+      lastPlayedAt: lastPlayedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastPlayedAt),
+      hltbImageUrl: hltbImageUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(hltbImageUrl),
       manualOverride: Value(manualOverride),
     );
   }
@@ -388,17 +485,20 @@ class Game extends DataClass implements Insertable<Game> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return Game(
       id: serializer.fromJson<int>(json['id']),
+      steamId: serializer.fromJson<String>(json['steamId']),
       appId: serializer.fromJson<int>(json['appId']),
       name: serializer.fromJson<String>(json['name']),
       playtimeMinutes: serializer.fromJson<int>(json['playtimeMinutes']),
-      rushedHours: serializer.fromJson<double?>(json['rushedHours']),
-      casuallyHours: serializer.fromJson<double?>(json['casuallyHours']),
+      essentialHours: serializer.fromJson<double?>(json['essentialHours']),
+      extendedHours: serializer.fromJson<double?>(json['extendedHours']),
       completionistHours: serializer.fromJson<double?>(
         json['completionistHours'],
       ),
       status: serializer.fromJson<String>(json['status']),
       addedAt: serializer.fromJson<DateTime>(json['addedAt']),
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
+      lastPlayedAt: serializer.fromJson<DateTime?>(json['lastPlayedAt']),
+      hltbImageUrl: serializer.fromJson<String?>(json['hltbImageUrl']),
       manualOverride: serializer.fromJson<bool>(json['manualOverride']),
     );
   }
@@ -407,62 +507,74 @@ class Game extends DataClass implements Insertable<Game> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
+      'steamId': serializer.toJson<String>(steamId),
       'appId': serializer.toJson<int>(appId),
       'name': serializer.toJson<String>(name),
       'playtimeMinutes': serializer.toJson<int>(playtimeMinutes),
-      'rushedHours': serializer.toJson<double?>(rushedHours),
-      'casuallyHours': serializer.toJson<double?>(casuallyHours),
+      'essentialHours': serializer.toJson<double?>(essentialHours),
+      'extendedHours': serializer.toJson<double?>(extendedHours),
       'completionistHours': serializer.toJson<double?>(completionistHours),
       'status': serializer.toJson<String>(status),
       'addedAt': serializer.toJson<DateTime>(addedAt),
       'completedAt': serializer.toJson<DateTime?>(completedAt),
+      'lastPlayedAt': serializer.toJson<DateTime?>(lastPlayedAt),
+      'hltbImageUrl': serializer.toJson<String?>(hltbImageUrl),
       'manualOverride': serializer.toJson<bool>(manualOverride),
     };
   }
 
   Game copyWith({
     int? id,
+    String? steamId,
     int? appId,
     String? name,
     int? playtimeMinutes,
-    Value<double?> rushedHours = const Value.absent(),
-    Value<double?> casuallyHours = const Value.absent(),
+    Value<double?> essentialHours = const Value.absent(),
+    Value<double?> extendedHours = const Value.absent(),
     Value<double?> completionistHours = const Value.absent(),
     String? status,
     DateTime? addedAt,
     Value<DateTime?> completedAt = const Value.absent(),
+    Value<DateTime?> lastPlayedAt = const Value.absent(),
+    Value<String?> hltbImageUrl = const Value.absent(),
     bool? manualOverride,
   }) => Game(
     id: id ?? this.id,
+    steamId: steamId ?? this.steamId,
     appId: appId ?? this.appId,
     name: name ?? this.name,
     playtimeMinutes: playtimeMinutes ?? this.playtimeMinutes,
-    rushedHours: rushedHours.present ? rushedHours.value : this.rushedHours,
-    casuallyHours: casuallyHours.present
-        ? casuallyHours.value
-        : this.casuallyHours,
+    essentialHours: essentialHours.present
+        ? essentialHours.value
+        : this.essentialHours,
+    extendedHours: extendedHours.present
+        ? extendedHours.value
+        : this.extendedHours,
     completionistHours: completionistHours.present
         ? completionistHours.value
         : this.completionistHours,
     status: status ?? this.status,
     addedAt: addedAt ?? this.addedAt,
     completedAt: completedAt.present ? completedAt.value : this.completedAt,
+    lastPlayedAt: lastPlayedAt.present ? lastPlayedAt.value : this.lastPlayedAt,
+    hltbImageUrl: hltbImageUrl.present ? hltbImageUrl.value : this.hltbImageUrl,
     manualOverride: manualOverride ?? this.manualOverride,
   );
   Game copyWithCompanion(GamesCompanion data) {
     return Game(
       id: data.id.present ? data.id.value : this.id,
+      steamId: data.steamId.present ? data.steamId.value : this.steamId,
       appId: data.appId.present ? data.appId.value : this.appId,
       name: data.name.present ? data.name.value : this.name,
       playtimeMinutes: data.playtimeMinutes.present
           ? data.playtimeMinutes.value
           : this.playtimeMinutes,
-      rushedHours: data.rushedHours.present
-          ? data.rushedHours.value
-          : this.rushedHours,
-      casuallyHours: data.casuallyHours.present
-          ? data.casuallyHours.value
-          : this.casuallyHours,
+      essentialHours: data.essentialHours.present
+          ? data.essentialHours.value
+          : this.essentialHours,
+      extendedHours: data.extendedHours.present
+          ? data.extendedHours.value
+          : this.extendedHours,
       completionistHours: data.completionistHours.present
           ? data.completionistHours.value
           : this.completionistHours,
@@ -471,6 +583,12 @@ class Game extends DataClass implements Insertable<Game> {
       completedAt: data.completedAt.present
           ? data.completedAt.value
           : this.completedAt,
+      lastPlayedAt: data.lastPlayedAt.present
+          ? data.lastPlayedAt.value
+          : this.lastPlayedAt,
+      hltbImageUrl: data.hltbImageUrl.present
+          ? data.hltbImageUrl.value
+          : this.hltbImageUrl,
       manualOverride: data.manualOverride.present
           ? data.manualOverride.value
           : this.manualOverride,
@@ -481,15 +599,18 @@ class Game extends DataClass implements Insertable<Game> {
   String toString() {
     return (StringBuffer('Game(')
           ..write('id: $id, ')
+          ..write('steamId: $steamId, ')
           ..write('appId: $appId, ')
           ..write('name: $name, ')
           ..write('playtimeMinutes: $playtimeMinutes, ')
-          ..write('rushedHours: $rushedHours, ')
-          ..write('casuallyHours: $casuallyHours, ')
+          ..write('essentialHours: $essentialHours, ')
+          ..write('extendedHours: $extendedHours, ')
           ..write('completionistHours: $completionistHours, ')
           ..write('status: $status, ')
           ..write('addedAt: $addedAt, ')
           ..write('completedAt: $completedAt, ')
+          ..write('lastPlayedAt: $lastPlayedAt, ')
+          ..write('hltbImageUrl: $hltbImageUrl, ')
           ..write('manualOverride: $manualOverride')
           ..write(')'))
         .toString();
@@ -498,15 +619,18 @@ class Game extends DataClass implements Insertable<Game> {
   @override
   int get hashCode => Object.hash(
     id,
+    steamId,
     appId,
     name,
     playtimeMinutes,
-    rushedHours,
-    casuallyHours,
+    essentialHours,
+    extendedHours,
     completionistHours,
     status,
     addedAt,
     completedAt,
+    lastPlayedAt,
+    hltbImageUrl,
     manualOverride,
   );
   @override
@@ -514,110 +638,135 @@ class Game extends DataClass implements Insertable<Game> {
       identical(this, other) ||
       (other is Game &&
           other.id == this.id &&
+          other.steamId == this.steamId &&
           other.appId == this.appId &&
           other.name == this.name &&
           other.playtimeMinutes == this.playtimeMinutes &&
-          other.rushedHours == this.rushedHours &&
-          other.casuallyHours == this.casuallyHours &&
+          other.essentialHours == this.essentialHours &&
+          other.extendedHours == this.extendedHours &&
           other.completionistHours == this.completionistHours &&
           other.status == this.status &&
           other.addedAt == this.addedAt &&
           other.completedAt == this.completedAt &&
+          other.lastPlayedAt == this.lastPlayedAt &&
+          other.hltbImageUrl == this.hltbImageUrl &&
           other.manualOverride == this.manualOverride);
 }
 
 class GamesCompanion extends UpdateCompanion<Game> {
   final Value<int> id;
+  final Value<String> steamId;
   final Value<int> appId;
   final Value<String> name;
   final Value<int> playtimeMinutes;
-  final Value<double?> rushedHours;
-  final Value<double?> casuallyHours;
+  final Value<double?> essentialHours;
+  final Value<double?> extendedHours;
   final Value<double?> completionistHours;
   final Value<String> status;
   final Value<DateTime> addedAt;
   final Value<DateTime?> completedAt;
+  final Value<DateTime?> lastPlayedAt;
+  final Value<String?> hltbImageUrl;
   final Value<bool> manualOverride;
   const GamesCompanion({
     this.id = const Value.absent(),
+    this.steamId = const Value.absent(),
     this.appId = const Value.absent(),
     this.name = const Value.absent(),
     this.playtimeMinutes = const Value.absent(),
-    this.rushedHours = const Value.absent(),
-    this.casuallyHours = const Value.absent(),
+    this.essentialHours = const Value.absent(),
+    this.extendedHours = const Value.absent(),
     this.completionistHours = const Value.absent(),
     this.status = const Value.absent(),
     this.addedAt = const Value.absent(),
     this.completedAt = const Value.absent(),
+    this.lastPlayedAt = const Value.absent(),
+    this.hltbImageUrl = const Value.absent(),
     this.manualOverride = const Value.absent(),
   });
   GamesCompanion.insert({
     this.id = const Value.absent(),
+    required String steamId,
     required int appId,
     required String name,
     this.playtimeMinutes = const Value.absent(),
-    this.rushedHours = const Value.absent(),
-    this.casuallyHours = const Value.absent(),
+    this.essentialHours = const Value.absent(),
+    this.extendedHours = const Value.absent(),
     this.completionistHours = const Value.absent(),
     this.status = const Value.absent(),
     required DateTime addedAt,
     this.completedAt = const Value.absent(),
+    this.lastPlayedAt = const Value.absent(),
+    this.hltbImageUrl = const Value.absent(),
     this.manualOverride = const Value.absent(),
-  }) : appId = Value(appId),
+  }) : steamId = Value(steamId),
+       appId = Value(appId),
        name = Value(name),
        addedAt = Value(addedAt);
   static Insertable<Game> custom({
     Expression<int>? id,
+    Expression<String>? steamId,
     Expression<int>? appId,
     Expression<String>? name,
     Expression<int>? playtimeMinutes,
-    Expression<double>? rushedHours,
-    Expression<double>? casuallyHours,
+    Expression<double>? essentialHours,
+    Expression<double>? extendedHours,
     Expression<double>? completionistHours,
     Expression<String>? status,
     Expression<DateTime>? addedAt,
     Expression<DateTime>? completedAt,
+    Expression<DateTime>? lastPlayedAt,
+    Expression<String>? hltbImageUrl,
     Expression<bool>? manualOverride,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (steamId != null) 'steam_id': steamId,
       if (appId != null) 'app_id': appId,
       if (name != null) 'name': name,
       if (playtimeMinutes != null) 'playtime_minutes': playtimeMinutes,
-      if (rushedHours != null) 'rushed_hours': rushedHours,
-      if (casuallyHours != null) 'casually_hours': casuallyHours,
+      if (essentialHours != null) 'essential_hours': essentialHours,
+      if (extendedHours != null) 'extended_hours': extendedHours,
       if (completionistHours != null) 'completionist_hours': completionistHours,
       if (status != null) 'status': status,
       if (addedAt != null) 'added_at': addedAt,
       if (completedAt != null) 'completed_at': completedAt,
+      if (lastPlayedAt != null) 'last_played_at': lastPlayedAt,
+      if (hltbImageUrl != null) 'hltb_image_url': hltbImageUrl,
       if (manualOverride != null) 'manual_override': manualOverride,
     });
   }
 
   GamesCompanion copyWith({
     Value<int>? id,
+    Value<String>? steamId,
     Value<int>? appId,
     Value<String>? name,
     Value<int>? playtimeMinutes,
-    Value<double?>? rushedHours,
-    Value<double?>? casuallyHours,
+    Value<double?>? essentialHours,
+    Value<double?>? extendedHours,
     Value<double?>? completionistHours,
     Value<String>? status,
     Value<DateTime>? addedAt,
     Value<DateTime?>? completedAt,
+    Value<DateTime?>? lastPlayedAt,
+    Value<String?>? hltbImageUrl,
     Value<bool>? manualOverride,
   }) {
     return GamesCompanion(
       id: id ?? this.id,
+      steamId: steamId ?? this.steamId,
       appId: appId ?? this.appId,
       name: name ?? this.name,
       playtimeMinutes: playtimeMinutes ?? this.playtimeMinutes,
-      rushedHours: rushedHours ?? this.rushedHours,
-      casuallyHours: casuallyHours ?? this.casuallyHours,
+      essentialHours: essentialHours ?? this.essentialHours,
+      extendedHours: extendedHours ?? this.extendedHours,
       completionistHours: completionistHours ?? this.completionistHours,
       status: status ?? this.status,
       addedAt: addedAt ?? this.addedAt,
       completedAt: completedAt ?? this.completedAt,
+      lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
+      hltbImageUrl: hltbImageUrl ?? this.hltbImageUrl,
       manualOverride: manualOverride ?? this.manualOverride,
     );
   }
@@ -628,6 +777,9 @@ class GamesCompanion extends UpdateCompanion<Game> {
     if (id.present) {
       map['id'] = Variable<int>(id.value);
     }
+    if (steamId.present) {
+      map['steam_id'] = Variable<String>(steamId.value);
+    }
     if (appId.present) {
       map['app_id'] = Variable<int>(appId.value);
     }
@@ -637,11 +789,11 @@ class GamesCompanion extends UpdateCompanion<Game> {
     if (playtimeMinutes.present) {
       map['playtime_minutes'] = Variable<int>(playtimeMinutes.value);
     }
-    if (rushedHours.present) {
-      map['rushed_hours'] = Variable<double>(rushedHours.value);
+    if (essentialHours.present) {
+      map['essential_hours'] = Variable<double>(essentialHours.value);
     }
-    if (casuallyHours.present) {
-      map['casually_hours'] = Variable<double>(casuallyHours.value);
+    if (extendedHours.present) {
+      map['extended_hours'] = Variable<double>(extendedHours.value);
     }
     if (completionistHours.present) {
       map['completionist_hours'] = Variable<double>(completionistHours.value);
@@ -655,6 +807,12 @@ class GamesCompanion extends UpdateCompanion<Game> {
     if (completedAt.present) {
       map['completed_at'] = Variable<DateTime>(completedAt.value);
     }
+    if (lastPlayedAt.present) {
+      map['last_played_at'] = Variable<DateTime>(lastPlayedAt.value);
+    }
+    if (hltbImageUrl.present) {
+      map['hltb_image_url'] = Variable<String>(hltbImageUrl.value);
+    }
     if (manualOverride.present) {
       map['manual_override'] = Variable<bool>(manualOverride.value);
     }
@@ -665,15 +823,18 @@ class GamesCompanion extends UpdateCompanion<Game> {
   String toString() {
     return (StringBuffer('GamesCompanion(')
           ..write('id: $id, ')
+          ..write('steamId: $steamId, ')
           ..write('appId: $appId, ')
           ..write('name: $name, ')
           ..write('playtimeMinutes: $playtimeMinutes, ')
-          ..write('rushedHours: $rushedHours, ')
-          ..write('casuallyHours: $casuallyHours, ')
+          ..write('essentialHours: $essentialHours, ')
+          ..write('extendedHours: $extendedHours, ')
           ..write('completionistHours: $completionistHours, ')
           ..write('status: $status, ')
           ..write('addedAt: $addedAt, ')
           ..write('completedAt: $completedAt, ')
+          ..write('lastPlayedAt: $lastPlayedAt, ')
+          ..write('hltbImageUrl: $hltbImageUrl, ')
           ..write('manualOverride: $manualOverride')
           ..write(')'))
         .toString();
@@ -686,15 +847,16 @@ class $AppSettingsTable extends AppSettings
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
   $AppSettingsTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  static const VerificationMeta _steamIdMeta = const VerificationMeta(
+    'steamId',
+  );
   @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
-    'id',
+  late final GeneratedColumn<String> steamId = GeneratedColumn<String>(
+    'steam_id',
     aliasedName,
     false,
-    check: () => id.equals(1),
-    type: DriftSqlType.int,
-    requiredDuringInsert: false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
   );
   static const VerificationMeta _completionThresholdMeta =
       const VerificationMeta('completionThreshold');
@@ -706,7 +868,7 @@ class $AppSettingsTable extends AppSettings
         false,
         type: DriftSqlType.string,
         requiredDuringInsert: false,
-        defaultValue: const Constant('casually'),
+        defaultValue: const Constant('essential'),
       );
   static const VerificationMeta _sortOrderMeta = const VerificationMeta(
     'sortOrder',
@@ -747,7 +909,7 @@ class $AppSettingsTable extends AppSettings
   );
   @override
   List<GeneratedColumn> get $columns => [
-    id,
+    steamId,
     completionThreshold,
     sortOrder,
     showCompletedTab,
@@ -765,8 +927,13 @@ class $AppSettingsTable extends AppSettings
   }) {
     final context = VerificationContext();
     final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    if (data.containsKey('steam_id')) {
+      context.handle(
+        _steamIdMeta,
+        steamId.isAcceptableOrUnknown(data['steam_id']!, _steamIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_steamIdMeta);
     }
     if (data.containsKey('completion_threshold')) {
       context.handle(
@@ -802,14 +969,14 @@ class $AppSettingsTable extends AppSettings
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {id};
+  Set<GeneratedColumn> get $primaryKey => {steamId};
   @override
   AppSetting map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
     return AppSetting(
-      id: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
-        data['${effectivePrefix}id'],
+      steamId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}steam_id'],
       )!,
       completionThreshold: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -837,13 +1004,13 @@ class $AppSettingsTable extends AppSettings
 }
 
 class AppSetting extends DataClass implements Insertable<AppSetting> {
-  final int id;
+  final String steamId;
   final String completionThreshold;
   final String sortOrder;
   final bool showCompletedTab;
   final String theme;
   const AppSetting({
-    required this.id,
+    required this.steamId,
     required this.completionThreshold,
     required this.sortOrder,
     required this.showCompletedTab,
@@ -852,7 +1019,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
+    map['steam_id'] = Variable<String>(steamId);
     map['completion_threshold'] = Variable<String>(completionThreshold);
     map['sort_order'] = Variable<String>(sortOrder);
     map['show_completed_tab'] = Variable<bool>(showCompletedTab);
@@ -862,7 +1029,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
 
   AppSettingsCompanion toCompanion(bool nullToAbsent) {
     return AppSettingsCompanion(
-      id: Value(id),
+      steamId: Value(steamId),
       completionThreshold: Value(completionThreshold),
       sortOrder: Value(sortOrder),
       showCompletedTab: Value(showCompletedTab),
@@ -876,7 +1043,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return AppSetting(
-      id: serializer.fromJson<int>(json['id']),
+      steamId: serializer.fromJson<String>(json['steamId']),
       completionThreshold: serializer.fromJson<String>(
         json['completionThreshold'],
       ),
@@ -889,7 +1056,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   Map<String, dynamic> toJson({ValueSerializer? serializer}) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
+      'steamId': serializer.toJson<String>(steamId),
       'completionThreshold': serializer.toJson<String>(completionThreshold),
       'sortOrder': serializer.toJson<String>(sortOrder),
       'showCompletedTab': serializer.toJson<bool>(showCompletedTab),
@@ -898,13 +1065,13 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   }
 
   AppSetting copyWith({
-    int? id,
+    String? steamId,
     String? completionThreshold,
     String? sortOrder,
     bool? showCompletedTab,
     String? theme,
   }) => AppSetting(
-    id: id ?? this.id,
+    steamId: steamId ?? this.steamId,
     completionThreshold: completionThreshold ?? this.completionThreshold,
     sortOrder: sortOrder ?? this.sortOrder,
     showCompletedTab: showCompletedTab ?? this.showCompletedTab,
@@ -912,7 +1079,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   );
   AppSetting copyWithCompanion(AppSettingsCompanion data) {
     return AppSetting(
-      id: data.id.present ? data.id.value : this.id,
+      steamId: data.steamId.present ? data.steamId.value : this.steamId,
       completionThreshold: data.completionThreshold.present
           ? data.completionThreshold.value
           : this.completionThreshold,
@@ -927,7 +1094,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   @override
   String toString() {
     return (StringBuffer('AppSetting(')
-          ..write('id: $id, ')
+          ..write('steamId: $steamId, ')
           ..write('completionThreshold: $completionThreshold, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('showCompletedTab: $showCompletedTab, ')
@@ -937,13 +1104,18 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, completionThreshold, sortOrder, showCompletedTab, theme);
+  int get hashCode => Object.hash(
+    steamId,
+    completionThreshold,
+    sortOrder,
+    showCompletedTab,
+    theme,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is AppSetting &&
-          other.id == this.id &&
+          other.steamId == this.steamId &&
           other.completionThreshold == this.completionThreshold &&
           other.sortOrder == this.sortOrder &&
           other.showCompletedTab == this.showCompletedTab &&
@@ -951,63 +1123,70 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
 }
 
 class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
-  final Value<int> id;
+  final Value<String> steamId;
   final Value<String> completionThreshold;
   final Value<String> sortOrder;
   final Value<bool> showCompletedTab;
   final Value<String> theme;
+  final Value<int> rowid;
   const AppSettingsCompanion({
-    this.id = const Value.absent(),
+    this.steamId = const Value.absent(),
     this.completionThreshold = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.showCompletedTab = const Value.absent(),
     this.theme = const Value.absent(),
+    this.rowid = const Value.absent(),
   });
   AppSettingsCompanion.insert({
-    this.id = const Value.absent(),
+    required String steamId,
     this.completionThreshold = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.showCompletedTab = const Value.absent(),
     this.theme = const Value.absent(),
-  });
+    this.rowid = const Value.absent(),
+  }) : steamId = Value(steamId);
   static Insertable<AppSetting> custom({
-    Expression<int>? id,
+    Expression<String>? steamId,
     Expression<String>? completionThreshold,
     Expression<String>? sortOrder,
     Expression<bool>? showCompletedTab,
     Expression<String>? theme,
+    Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
-      if (id != null) 'id': id,
+      if (steamId != null) 'steam_id': steamId,
       if (completionThreshold != null)
         'completion_threshold': completionThreshold,
       if (sortOrder != null) 'sort_order': sortOrder,
       if (showCompletedTab != null) 'show_completed_tab': showCompletedTab,
       if (theme != null) 'theme': theme,
+      if (rowid != null) 'rowid': rowid,
     });
   }
 
   AppSettingsCompanion copyWith({
-    Value<int>? id,
+    Value<String>? steamId,
     Value<String>? completionThreshold,
     Value<String>? sortOrder,
     Value<bool>? showCompletedTab,
     Value<String>? theme,
+    Value<int>? rowid,
   }) {
     return AppSettingsCompanion(
-      id: id ?? this.id,
+      steamId: steamId ?? this.steamId,
       completionThreshold: completionThreshold ?? this.completionThreshold,
       sortOrder: sortOrder ?? this.sortOrder,
       showCompletedTab: showCompletedTab ?? this.showCompletedTab,
       theme: theme ?? this.theme,
+      rowid: rowid ?? this.rowid,
     );
   }
 
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<int>(id.value);
+    if (steamId.present) {
+      map['steam_id'] = Variable<String>(steamId.value);
     }
     if (completionThreshold.present) {
       map['completion_threshold'] = Variable<String>(completionThreshold.value);
@@ -1021,17 +1200,21 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     if (theme.present) {
       map['theme'] = Variable<String>(theme.value);
     }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
     return map;
   }
 
   @override
   String toString() {
     return (StringBuffer('AppSettingsCompanion(')
-          ..write('id: $id, ')
+          ..write('steamId: $steamId, ')
           ..write('completionThreshold: $completionThreshold, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('showCompletedTab: $showCompletedTab, ')
-          ..write('theme: $theme')
+          ..write('theme: $theme, ')
+          ..write('rowid: $rowid')
           ..write(')'))
         .toString();
   }
@@ -1056,6 +1239,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final GamesDao gamesDao = GamesDao(this as AppDatabase);
   late final SettingsDao settingsDao = SettingsDao(this as AppDatabase);
+  late final StatsDao statsDao = StatsDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1072,29 +1256,35 @@ abstract class _$AppDatabase extends GeneratedDatabase {
 typedef $$GamesTableCreateCompanionBuilder =
     GamesCompanion Function({
       Value<int> id,
+      required String steamId,
       required int appId,
       required String name,
       Value<int> playtimeMinutes,
-      Value<double?> rushedHours,
-      Value<double?> casuallyHours,
+      Value<double?> essentialHours,
+      Value<double?> extendedHours,
       Value<double?> completionistHours,
       Value<String> status,
       required DateTime addedAt,
       Value<DateTime?> completedAt,
+      Value<DateTime?> lastPlayedAt,
+      Value<String?> hltbImageUrl,
       Value<bool> manualOverride,
     });
 typedef $$GamesTableUpdateCompanionBuilder =
     GamesCompanion Function({
       Value<int> id,
+      Value<String> steamId,
       Value<int> appId,
       Value<String> name,
       Value<int> playtimeMinutes,
-      Value<double?> rushedHours,
-      Value<double?> casuallyHours,
+      Value<double?> essentialHours,
+      Value<double?> extendedHours,
       Value<double?> completionistHours,
       Value<String> status,
       Value<DateTime> addedAt,
       Value<DateTime?> completedAt,
+      Value<DateTime?> lastPlayedAt,
+      Value<String?> hltbImageUrl,
       Value<bool> manualOverride,
     });
 
@@ -1108,6 +1298,11 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
   });
   ColumnFilters<int> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get steamId => $composableBuilder(
+    column: $table.steamId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1126,13 +1321,13 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<double> get rushedHours => $composableBuilder(
-    column: $table.rushedHours,
+  ColumnFilters<double> get essentialHours => $composableBuilder(
+    column: $table.essentialHours,
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<double> get casuallyHours => $composableBuilder(
-    column: $table.casuallyHours,
+  ColumnFilters<double> get extendedHours => $composableBuilder(
+    column: $table.extendedHours,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1156,6 +1351,16 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get lastPlayedAt => $composableBuilder(
+    column: $table.lastPlayedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get hltbImageUrl => $composableBuilder(
+    column: $table.hltbImageUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<bool> get manualOverride => $composableBuilder(
     column: $table.manualOverride,
     builder: (column) => ColumnFilters(column),
@@ -1176,6 +1381,11 @@ class $$GamesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get steamId => $composableBuilder(
+    column: $table.steamId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get appId => $composableBuilder(
     column: $table.appId,
     builder: (column) => ColumnOrderings(column),
@@ -1191,13 +1401,13 @@ class $$GamesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<double> get rushedHours => $composableBuilder(
-    column: $table.rushedHours,
+  ColumnOrderings<double> get essentialHours => $composableBuilder(
+    column: $table.essentialHours,
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<double> get casuallyHours => $composableBuilder(
-    column: $table.casuallyHours,
+  ColumnOrderings<double> get extendedHours => $composableBuilder(
+    column: $table.extendedHours,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -1221,6 +1431,16 @@ class $$GamesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get lastPlayedAt => $composableBuilder(
+    column: $table.lastPlayedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get hltbImageUrl => $composableBuilder(
+    column: $table.hltbImageUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get manualOverride => $composableBuilder(
     column: $table.manualOverride,
     builder: (column) => ColumnOrderings(column),
@@ -1239,6 +1459,9 @@ class $$GamesTableAnnotationComposer
   GeneratedColumn<int> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
+  GeneratedColumn<String> get steamId =>
+      $composableBuilder(column: $table.steamId, builder: (column) => column);
+
   GeneratedColumn<int> get appId =>
       $composableBuilder(column: $table.appId, builder: (column) => column);
 
@@ -1250,13 +1473,13 @@ class $$GamesTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<double> get rushedHours => $composableBuilder(
-    column: $table.rushedHours,
+  GeneratedColumn<double> get essentialHours => $composableBuilder(
+    column: $table.essentialHours,
     builder: (column) => column,
   );
 
-  GeneratedColumn<double> get casuallyHours => $composableBuilder(
-    column: $table.casuallyHours,
+  GeneratedColumn<double> get extendedHours => $composableBuilder(
+    column: $table.extendedHours,
     builder: (column) => column,
   );
 
@@ -1273,6 +1496,16 @@ class $$GamesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get completedAt => $composableBuilder(
     column: $table.completedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get lastPlayedAt => $composableBuilder(
+    column: $table.lastPlayedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get hltbImageUrl => $composableBuilder(
+    column: $table.hltbImageUrl,
     builder: (column) => column,
   );
 
@@ -1311,53 +1544,65 @@ class $$GamesTableTableManager
           updateCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                Value<String> steamId = const Value.absent(),
                 Value<int> appId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<int> playtimeMinutes = const Value.absent(),
-                Value<double?> rushedHours = const Value.absent(),
-                Value<double?> casuallyHours = const Value.absent(),
+                Value<double?> essentialHours = const Value.absent(),
+                Value<double?> extendedHours = const Value.absent(),
                 Value<double?> completionistHours = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<DateTime> addedAt = const Value.absent(),
                 Value<DateTime?> completedAt = const Value.absent(),
+                Value<DateTime?> lastPlayedAt = const Value.absent(),
+                Value<String?> hltbImageUrl = const Value.absent(),
                 Value<bool> manualOverride = const Value.absent(),
               }) => GamesCompanion(
                 id: id,
+                steamId: steamId,
                 appId: appId,
                 name: name,
                 playtimeMinutes: playtimeMinutes,
-                rushedHours: rushedHours,
-                casuallyHours: casuallyHours,
+                essentialHours: essentialHours,
+                extendedHours: extendedHours,
                 completionistHours: completionistHours,
                 status: status,
                 addedAt: addedAt,
                 completedAt: completedAt,
+                lastPlayedAt: lastPlayedAt,
+                hltbImageUrl: hltbImageUrl,
                 manualOverride: manualOverride,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
+                required String steamId,
                 required int appId,
                 required String name,
                 Value<int> playtimeMinutes = const Value.absent(),
-                Value<double?> rushedHours = const Value.absent(),
-                Value<double?> casuallyHours = const Value.absent(),
+                Value<double?> essentialHours = const Value.absent(),
+                Value<double?> extendedHours = const Value.absent(),
                 Value<double?> completionistHours = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 required DateTime addedAt,
                 Value<DateTime?> completedAt = const Value.absent(),
+                Value<DateTime?> lastPlayedAt = const Value.absent(),
+                Value<String?> hltbImageUrl = const Value.absent(),
                 Value<bool> manualOverride = const Value.absent(),
               }) => GamesCompanion.insert(
                 id: id,
+                steamId: steamId,
                 appId: appId,
                 name: name,
                 playtimeMinutes: playtimeMinutes,
-                rushedHours: rushedHours,
-                casuallyHours: casuallyHours,
+                essentialHours: essentialHours,
+                extendedHours: extendedHours,
                 completionistHours: completionistHours,
                 status: status,
                 addedAt: addedAt,
                 completedAt: completedAt,
+                lastPlayedAt: lastPlayedAt,
+                hltbImageUrl: hltbImageUrl,
                 manualOverride: manualOverride,
               ),
           withReferenceMapper: (p0) => p0
@@ -1384,19 +1629,21 @@ typedef $$GamesTableProcessedTableManager =
     >;
 typedef $$AppSettingsTableCreateCompanionBuilder =
     AppSettingsCompanion Function({
-      Value<int> id,
+      required String steamId,
       Value<String> completionThreshold,
       Value<String> sortOrder,
       Value<bool> showCompletedTab,
       Value<String> theme,
+      Value<int> rowid,
     });
 typedef $$AppSettingsTableUpdateCompanionBuilder =
     AppSettingsCompanion Function({
-      Value<int> id,
+      Value<String> steamId,
       Value<String> completionThreshold,
       Value<String> sortOrder,
       Value<bool> showCompletedTab,
       Value<String> theme,
+      Value<int> rowid,
     });
 
 class $$AppSettingsTableFilterComposer
@@ -1408,8 +1655,8 @@ class $$AppSettingsTableFilterComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnFilters<int> get id => $composableBuilder(
-    column: $table.id,
+  ColumnFilters<String> get steamId => $composableBuilder(
+    column: $table.steamId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1443,8 +1690,8 @@ class $$AppSettingsTableOrderingComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  ColumnOrderings<int> get id => $composableBuilder(
-    column: $table.id,
+  ColumnOrderings<String> get steamId => $composableBuilder(
+    column: $table.steamId,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -1478,8 +1725,8 @@ class $$AppSettingsTableAnnotationComposer
     super.$addJoinBuilderToRootComposer,
     super.$removeJoinBuilderFromRootComposer,
   });
-  GeneratedColumn<int> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
+  GeneratedColumn<String> get steamId =>
+      $composableBuilder(column: $table.steamId, builder: (column) => column);
 
   GeneratedColumn<String> get completionThreshold => $composableBuilder(
     column: $table.completionThreshold,
@@ -1529,31 +1776,35 @@ class $$AppSettingsTableTableManager
               $$AppSettingsTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback:
               ({
-                Value<int> id = const Value.absent(),
+                Value<String> steamId = const Value.absent(),
                 Value<String> completionThreshold = const Value.absent(),
                 Value<String> sortOrder = const Value.absent(),
                 Value<bool> showCompletedTab = const Value.absent(),
                 Value<String> theme = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => AppSettingsCompanion(
-                id: id,
+                steamId: steamId,
                 completionThreshold: completionThreshold,
                 sortOrder: sortOrder,
                 showCompletedTab: showCompletedTab,
                 theme: theme,
+                rowid: rowid,
               ),
           createCompanionCallback:
               ({
-                Value<int> id = const Value.absent(),
+                required String steamId,
                 Value<String> completionThreshold = const Value.absent(),
                 Value<String> sortOrder = const Value.absent(),
                 Value<bool> showCompletedTab = const Value.absent(),
                 Value<String> theme = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
               }) => AppSettingsCompanion.insert(
-                id: id,
+                steamId: steamId,
                 completionThreshold: completionThreshold,
                 sortOrder: sortOrder,
                 showCompletedTab: showCompletedTab,
                 theme: theme,
+                rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

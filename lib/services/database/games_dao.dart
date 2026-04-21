@@ -1,32 +1,43 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart';
 import 'app_database.dart';
 import 'tables.dart';
-import '../igdb_service.dart';
+import '../hltb_service.dart';
 import '../status_calculator.dart';
+import '../../models/time_to_beat.dart';
 
 part 'games_dao.g.dart';
 
-/// Data access object for game-related database operations.
-/// Handles querying games, fetching completion time data from IGDB, and recalculating game statuses.
+/// Sort options available in the backlog and completed tabs.
+enum SortMode { alphabetical, shortest, longest, mostPlayed, neglected }
+
 @DriftAccessor(tables: [Games])
 class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
   GamesDao(super.db);
 
-  final _igdb = IgdbService();
+  final _hltb = HltbService();
 
-  // Insert or replace by appId. Used by Steam sync and manual game add.
-  Future<int> upsert(GamesCompanion g) => into(games).insertOnConflictUpdate(g);
+  /// Finds a Steam game by its [appId] for a specific user.
+  Future<Game?> findByAppId(int appId, String steamId) =>
+      (select(games)
+            ..where((g) => g.appId.equals(appId) & g.steamId.equals(steamId)))
+          .getSingleOrNull();
 
-  Future<Game?> findByAppId(int appId) =>
-      (select(games)..where((g) => g.appId.equals(appId))).getSingleOrNull();
+  /// Finds a game by name for a specific user (used to detect duplicates before manual add).
+  Future<Game?> findByName(String name, String steamId) =>
+      (select(games)
+            ..where((g) => g.name.equals(name) & g.steamId.equals(steamId)))
+          .getSingleOrNull();
 
-  Future<List<Game>> getAllGames() => select(games).get();
+  /// Returns every game in the library for a user, regardless of status.
+  Future<List<Game>> getAllGames(String steamId) =>
+      (select(games)..where((g) => g.steamId.equals(steamId))).get();
 
-  // Backlog tab: playing + backlog rows, playing pinned to the top,
-  // then case-insensitive alphabetical by name.
-  Future<List<Game>> getBacklog() {
+  /// Backlog tab: playing games pinned to the top, then backlog alphabetically.
+  Future<List<Game>> getBacklog(String steamId) {
     return (select(games)
-          ..where((g) => g.status.isIn(['backlog', 'playing']))
+          ..where((g) =>
+              g.status.isIn(['backlog', 'playing']) & g.steamId.equals(steamId))
           ..orderBy([
             (g) => OrderingTerm.desc(g.status),
             (g) => OrderingTerm(expression: g.name, mode: OrderingMode.asc),
@@ -34,72 +45,75 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
         .get();
   }
 
-  // Completed tab: most recently finished first.
-  Future<List<Game>> getCompleted() {
+  /// Completed tab: most recently finished first; null completedAt sinks to the bottom.
+  Future<List<Game>> getCompleted(String steamId) {
     return (select(games)
-          ..where((g) => g.status.equals('completed'))
-          ..orderBy([(g) => OrderingTerm.desc(g.completedAt)]))
+          ..where((g) =>
+              g.status.equals('completed') & g.steamId.equals(steamId))
+          ..orderBy([
+            (g) => OrderingTerm(
+              expression: g.completedAt,
+              mode: OrderingMode.desc,
+              nulls: NullsOrder.last,
+            ),
+          ]))
         .get();
   }
 
-  // Auto-updating stream — UI rebuilds when any row changes.
-  Stream<List<Game>> watchBacklog() {
-    return (select(
-      games,
-    )..where((g) => g.status.isIn(['backlog', 'playing']))).watch();
+  Stream<List<Game>> watchBacklog(String steamId) {
+    return (select(games)
+          ..where((g) =>
+              g.status.isIn(['backlog', 'playing']) & g.steamId.equals(steamId)))
+        .watch();
   }
 
-  /// Returns the number of games that received new time-to-beat data.
-  Future<int> fetchAllTimeToBeat(List<Game> games) async {
+  /// Fetches time-to-beat data from HLTB for any game that doesn't have it yet.
+  /// Returns the number of games that received new data.
+  Future<int> fetchAllTimeToBeat(List<Game> allGames) async {
     int fetched = 0;
-    for (final g in games) {
-      // Skip if already have time-to-beat data, or if user has manually set the status.
+    for (final g in allGames) {
       if (g.manualOverride ||
-          g.rushedHours != null ||
-          g.casuallyHours != null ||
+          g.essentialHours != null ||
+          g.extendedHours != null ||
           g.completionistHours != null) {
         continue;
       }
       try {
-        final data = await _igdb.lookup(g.name);
+        final data = await _hltb.lookup(g.name);
         if (data != null) {
           fetched++;
           await (db.update(db.games)..where((tbl) => tbl.id.equals(g.id)))
               .write(
             GamesCompanion(
-              rushedHours: Value(data.rushedHours),
-              casuallyHours: Value(data.casuallyHours),
+              essentialHours: Value(data.essentialHours),
+              extendedHours: Value(data.extendedHours),
               completionistHours: Value(data.completionistHours),
             ),
           );
         }
       } catch (e) {
-        // Silently skip games that fail IGDB lookup; they'll retry on next sync.
+        debugPrint('HLTB lookup failed for "${g.name}": $e');
       }
-      // IGDB allows 4 req/s; each game needs 2 requests (search + time_to_beat).
-      // Rate limit enforced via 550ms delay between lookups.
-      await Future.delayed(const Duration(milliseconds: 550));
+      await Future.delayed(const Duration(milliseconds: 300));
     }
     return fetched;
   }
 
-  /// Recalculates status for all games based on time-to-beat and playtime, respecting manual overrides.
-  Future<void> recalculateAllStatuses() async {
-    final games = await select(db.games).get();
+  /// Re-derives the status for every non-overridden game based on current playtime
+  /// and the user's chosen completion threshold.
+  Future<void> recalculateAllStatuses(String steamId) async {
+    final allGames = await getAllGames(steamId);
 
-    // Get user's completion threshold preference, migrating legacy values.
-    final settings = await (db.select(db.appSettings)..where((s) => s.id.equals(1))).getSingleOrNull();
-    final thresholdStr = settings?.completionThreshold ?? 'casually';
+    final settings = await (db.select(db.appSettings)
+          ..where((s) => s.steamId.equals(steamId)))
+        .getSingleOrNull();
+    final thresholdStr = settings?.completionThreshold ?? 'essential';
     final threshold = _parseThreshold(thresholdStr);
 
-    // Calculate and update status for each game in a single transaction for consistency.
     await db.transaction(() async {
-      for (final game in games) {
-        // Skip games with manual status overrides; their status is user-controlled.
+      for (final game in allGames) {
         if (game.manualOverride) continue;
-
         final newStatus = calculateStatus(game, threshold);
-
         await (db.update(db.games)..where((g) => g.id.equals(game.id))).write(
           GamesCompanion(status: Value(newStatus.name)),
         );
@@ -107,14 +121,88 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
     });
   }
 
-  /// Maps legacy DB values (e.g. 'main') to the current enum, defaulting to casually.
+  /// Inserts a manually-searched game with a negative appId (to distinguish it
+  /// from Steam games) and optional HLTB time-to-beat data.
+  Future<int> addManualGame(
+      String gameName, TimeToBeat? timeToBeat, String steamId,
+      {String? artworkUrl}) {
+    // Negative millisecond timestamp gives a unique ID that won't collide with Steam appIds.
+    final negativeId = -DateTime.now().millisecondsSinceEpoch;
+    return into(games).insert(
+      GamesCompanion.insert(
+        steamId: steamId,
+        appId: negativeId,
+        name: gameName,
+        playtimeMinutes: const Value(0),
+        essentialHours: Value(timeToBeat?.essentialHours),
+        extendedHours: Value(timeToBeat?.extendedHours),
+        completionistHours: Value(timeToBeat?.completionistHours),
+        hltbImageUrl: Value(artworkUrl),
+        manualOverride: const Value(true),
+        addedAt: DateTime.now(),
+      ),
+    );
+  }
+
+  /// Maps legacy threshold string values (from older schema versions or settings)
+  /// to the current [CompletionThreshold] enum. Defaults to essential.
   CompletionThreshold _parseThreshold(String value) {
     const legacy = {
-      'main': CompletionThreshold.casually,
-      'mainPlusExtras': CompletionThreshold.casually,
+      'main': CompletionThreshold.essential,
+      'mainPlusExtras': CompletionThreshold.extended,
+      'casually': CompletionThreshold.extended,
+      'extended': CompletionThreshold.extended,
     };
     return legacy[value] ??
         CompletionThreshold.values.asNameMap()[value] ??
-        CompletionThreshold.casually;
+        CompletionThreshold.essential;
+  }
+
+  List<OrderClauseGenerator<$GamesTable>> _orderFor(SortMode mode) {
+    switch (mode) {
+      case SortMode.alphabetical:
+        return [
+          (g) => OrderingTerm(expression: g.name, mode: OrderingMode.asc)
+        ];
+      case SortMode.shortest:
+        return [
+          (g) => OrderingTerm(
+              expression: g.extendedHours.isNull(), mode: OrderingMode.asc),
+          (g) => OrderingTerm.asc(g.extendedHours),
+        ];
+      case SortMode.longest:
+        return [
+          (g) => OrderingTerm(
+              expression: g.extendedHours.isNull(), mode: OrderingMode.asc),
+          (g) => OrderingTerm.desc(g.extendedHours),
+        ];
+      case SortMode.mostPlayed:
+        return [(g) => OrderingTerm.desc(g.playtimeMinutes)];
+      case SortMode.neglected:
+        return [(g) => OrderingTerm.asc(g.addedAt)];
+    }
+  }
+
+  /// Backlog games sorted by [mode]. Neglected mode additionally filters to
+  /// games with zero playtime.
+  Future<List<Game>> backlogSorted(SortMode mode, String steamId) {
+    return (select(games)
+          ..where((g) {
+            final isBacklog = g.status.isIn(['backlog', 'playing']) &
+                g.steamId.equals(steamId);
+            return mode == SortMode.neglected
+                ? isBacklog & g.playtimeMinutes.equals(0)
+                : isBacklog;
+          })
+          ..orderBy(_orderFor(mode)))
+        .get();
+  }
+
+  Future<List<Game>> completedSorted(SortMode mode, String steamId) {
+    return (select(games)
+          ..where((g) =>
+              g.status.equals('completed') & g.steamId.equals(steamId))
+          ..orderBy(_orderFor(mode)))
+        .get();
   }
 }
