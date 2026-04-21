@@ -76,7 +76,7 @@ jobs:
         run: dart run build_runner build
 
       - name: Build Linux
-        run: flutter build linux --release
+        run: flutter build linux --release -v
 
       - name: Install linuxdeploy
         run: |
@@ -89,18 +89,14 @@ jobs:
 
       - name: Create AppImage
         run: |
-          # Set up AppDir
+          # Copy entire Flutter bundle to AppDir/usr/bin
+          # This preserves the relative lib/ path that the binary expects
           mkdir -p AppDir/usr/bin
-          mkdir -p AppDir/usr/share/applications
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-
-          # Copy Flutter binary and data
-          cp build/linux/x64/release/bundle/backlogforge AppDir/usr/bin/
-          cp -r build/linux/x64/release/bundle/lib AppDir/usr/lib || true
-          cp -r build/linux/x64/release/bundle/data AppDir/usr/share/backlogforge || true
+          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
           chmod +x AppDir/usr/bin/backlogforge
 
           # Create .desktop file
+          mkdir -p AppDir/usr/share/applications
           cat > AppDir/usr/share/applications/com.example.backlogforge.desktop << 'EOF'
           [Desktop Entry]
           Type=Application
@@ -112,19 +108,17 @@ jobs:
           Terminal=false
           EOF
 
-          # Copy app icon
+          # Copy app icon if available
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
           if [ -f "store_assets/logos/linux_flathub/icon_256x256.png" ]; then
             cp store_assets/logos/linux_flathub/icon_256x256.png \
               AppDir/usr/share/icons/hicolor/256x256/apps/com.example.backlogforge.png
           fi
 
-          # Build AppImage with automatic dependency resolution
+          # Build AppImage - linuxdeploy will find all libs via binary RPATH
           export VERSION="${GITHUB_REF#refs/tags/v}"
           ./linuxdeploy/linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
-            --executable AppDir/usr/bin/backlogforge \
-            --desktop-file AppDir/usr/share/applications/com.example.backlogforge.desktop \
-            --icon-file AppDir/usr/share/icons/hicolor/256x256/apps/com.example.backlogforge.png \
             --output appimage
 
       - name: Upload Linux artifact
@@ -139,16 +133,16 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.0
 
       - name: Download Windows artifact
-        uses: actions/download-artifact@v4.1.7
+        uses: actions/download-artifact@v4.4.0
         with:
           name: backlogforge-windows
           path: windows-build/
 
       - name: Download Linux artifact
-        uses: actions/download-artifact@v4.1.7
+        uses: actions/download-artifact@v4.4.0
         with:
           name: backlogforge-linux
           path: linux-build/
