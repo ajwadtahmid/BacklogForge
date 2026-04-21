@@ -15,14 +15,24 @@ class GameActions {
 
   /// Sets the status of [g] to [next], marking it as a manual override so
   /// automatic recalculation won't revert the change on the next sync.
-  Future<void> setStatus(Game g, GameStatus next) async {
+  ///
+  /// Pass [preserveCompletedAt] = true when marking a completed game as
+  /// "playing" — this keeps the completedAt timestamp so the game remains
+  /// visible in the completed tab rather than moving to the backlog.
+  Future<void> setStatus(
+    Game g,
+    GameStatus next, {
+    bool preserveCompletedAt = false,
+  }) async {
     await (db.update(db.games)..where((tbl) => tbl.id.equals(g.id))).write(
       GamesCompanion(
         status: Value(next.name),
         manualOverride: const Value(true),
         completedAt: next == GameStatus.completed
             ? Value(DateTime.now())
-            : const Value(null),
+            : preserveCompletedAt
+                ? const Value.absent() // leave completedAt unchanged
+                : const Value(null),
       ),
     );
     _invalidateAll();

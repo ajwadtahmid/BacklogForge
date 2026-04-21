@@ -95,18 +95,56 @@ class LibraryScreen extends ConsumerWidget {
   }
 }
 
-class BacklogTab extends ConsumerWidget {
+class BacklogTab extends ConsumerStatefulWidget {
   const BacklogTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BacklogTab> createState() => _BacklogTabState();
+}
+
+class _BacklogTabState extends ConsumerState<BacklogTab> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final sortMode = ref.watch(backlogSortModeProvider);
     final gamesFuture = ref.watch(backlogSortedProvider);
 
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search backlog…',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: _query.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _query = '');
+                      },
+                    )
+                  : null,
+              isDense: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: SegmentedButton<SortMode>(
             segments: const [
               ButtonSegment(value: SortMode.alphabetical, label: Text('A-Z')),
@@ -124,20 +162,26 @@ class BacklogTab extends ConsumerWidget {
           child: gamesFuture.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(child: Text('Error: $e')),
-            data: (games) => games.isEmpty
-                ? const Center(child: Text('No games in backlog'))
-                : GridView.builder(
-                    padding: const EdgeInsets.all(12),
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 180,
-                          childAspectRatio: 16 / 9,
-                          mainAxisSpacing: 10,
-                          crossAxisSpacing: 10,
-                        ),
-                    itemCount: games.length,
-                    itemBuilder: (context, i) => GameCard(game: games[i]),
+            data: (games) {
+              final filtered = _query.isEmpty
+                  ? games
+                  : games
+                      .where((g) =>
+                          g.name.toLowerCase().contains(_query))
+                      .toList();
+              if (filtered.isEmpty) {
+                return Center(
+                  child: Text(
+                    _query.isEmpty ? 'No games in backlog' : 'No results',
                   ),
+                );
+              }
+              return ListView.separated(
+                itemCount: filtered.length,
+                separatorBuilder: (context, i) => const Divider(height: 1),
+                itemBuilder: (context, i) => GameCard(game: filtered[i]),
+              );
+            },
           ),
         ),
       ],
@@ -145,18 +189,56 @@ class BacklogTab extends ConsumerWidget {
   }
 }
 
-class CompletedTab extends ConsumerWidget {
+class CompletedTab extends ConsumerStatefulWidget {
   const CompletedTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CompletedTab> createState() => _CompletedTabState();
+}
+
+class _CompletedTabState extends ConsumerState<CompletedTab> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final sortMode = ref.watch(completedSortModeProvider);
     final gamesFuture = ref.watch(completedSortedProvider);
 
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          child: TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search completed…',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              suffixIcon: _query.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() => _query = '');
+                      },
+                    )
+                  : null,
+              isDense: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: SegmentedButton<SortMode>(
             segments: const [
               ButtonSegment(value: SortMode.alphabetical, label: Text('A-Z')),
@@ -174,20 +256,27 @@ class CompletedTab extends ConsumerWidget {
           child: gamesFuture.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(child: Text('Error: $e')),
-            data: (games) => games.isEmpty
-                ? const Center(child: Text('No games completed'))
-                : GridView.builder(
-                    padding: const EdgeInsets.all(12),
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 180,
-                          childAspectRatio: 16 / 9,
-                          mainAxisSpacing: 10,
-                          crossAxisSpacing: 10,
-                        ),
-                    itemCount: games.length,
-                    itemBuilder: (context, i) => GameCard(game: games[i]),
+            data: (games) {
+              final filtered = _query.isEmpty
+                  ? games
+                  : games
+                      .where((g) =>
+                          g.name.toLowerCase().contains(_query))
+                      .toList();
+              if (filtered.isEmpty) {
+                return Center(
+                  child: Text(
+                    _query.isEmpty ? 'No games completed' : 'No results',
                   ),
+                );
+              }
+              return ListView.separated(
+                itemCount: filtered.length,
+                separatorBuilder: (context, i) => const Divider(height: 1),
+                itemBuilder: (context, i) =>
+                    GameCard(game: filtered[i], isInCompletedTab: true),
+              );
+            },
           ),
         ),
       ],
