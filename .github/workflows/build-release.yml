@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -26,21 +29,10 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release -v
 
-      - name: Check build output
-        run: |
-          if (Test-Path "build/windows/runner/Release") {
-            Write-Host "Build output exists"
-            Get-ChildItem -Recurse "build/windows/runner/Release" | Select-Object FullName
-          } else {
-            Write-Host "ERROR: Build output not found! Checking available directories:"
-            Get-ChildItem -Recurse "build" -Directory | Select-Object FullName
-            exit 1
-          }
-
       - name: Prepare Windows artifact
         run: |
           mkdir -p release
-          Copy-Item -Recurse "build/windows/runner/Release/*" "release/"
+          Copy-Item -Recurse "build/windows/x64/runner/Release/*" "release/"
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
