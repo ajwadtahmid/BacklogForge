@@ -5,14 +5,11 @@ on:
     tags:
       - 'v*'
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.0
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -35,7 +32,7 @@ jobs:
           Copy-Item -Recurse "build/windows/x64/runner/Release/*" "release/"
 
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: backlogforge-windows
           path: release/
@@ -43,7 +40,7 @@ jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.0
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -135,7 +132,7 @@ jobs:
             -v 2
 
       - name: Upload Linux artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: backlogforge-linux
           path: BacklogForge-*.AppImage
@@ -149,13 +146,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Download Windows artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.1.7
         with:
           name: backlogforge-windows
           path: windows-build/
 
       - name: Download Linux artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.1.7
         with:
           name: backlogforge-linux
           path: linux-build/
