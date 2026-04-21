@@ -9,8 +9,8 @@ def _entry_to_dict(entry: HowLongToBeatEntry) -> dict:
         'id': entry.game_id,
         'name': entry.game_name,
         'image_url': entry.game_image_url,
-        'rushed_hours': entry.main_story if entry.main_story > 0 else None,
-        'casually_hours': entry.main_extra if entry.main_extra > 0 else None,
+        'essential_hours': entry.main_story if entry.main_story > 0 else None,
+        'extended_hours': entry.main_extra if entry.main_extra > 0 else None,
         'completionist_hours': entry.completionist if entry.completionist > 0 else None,
     }
 
@@ -40,7 +40,6 @@ def lookup():
         return jsonify(None)
 
     best = max(results, key=lambda r: r.similarity)
-    # Reject weak matches to avoid wrong time-to-beat data on similar game names.
     if best.similarity < 0.4:
         return jsonify(None)
 
