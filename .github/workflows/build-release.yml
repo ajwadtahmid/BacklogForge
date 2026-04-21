@@ -26,6 +26,16 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release
 
+      - name: Check build output
+        run: |
+          if (Test-Path "build/windows/runner/Release") {
+            Write-Host "Build output exists"
+            Get-ChildItem -Recurse "build/windows/runner/Release" | Select-Object FullName
+          } else {
+            Write-Host "ERROR: Build output not found!"
+            exit 1
+          }
+
       - name: Prepare Windows artifact
         run: |
           mkdir -p release
@@ -63,6 +73,7 @@ jobs:
             libxcursor-dev \
             libxkbcommon-dev \
             libssl-dev \
+            libsecret-1-dev \
             zsync
 
       - name: Get dependencies
