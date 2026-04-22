@@ -29,16 +29,32 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release -v
 
-      - name: Prepare Windows artifact
+      - name: Build Windows installer
         run: |
-          mkdir -p release
-          Copy-Item -Recurse "build/windows/x64/runner/Release/*" "release/"
+          $version    = "${{ github.ref_name }}".TrimStart('v')
+          $sourceDir  = "${{ github.workspace }}\build\windows\x64\runner\Release"
+          $outputDir  = "${{ github.workspace }}\installer-output"
+          $iconFile   = "${{ github.workspace }}\windows\runner\resources\app_icon.ico"
+          $filename   = "BacklogForge-Setup-${{ github.ref_name }}"
+          $iscc       = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+
+          New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
+
+          & $iscc `
+            "/DMyAppVersion=$version" `
+            "/DSourceDir=$sourceDir" `
+            "/DOutputDir=$outputDir" `
+            "/DOutputFilename=$filename" `
+            "/DMyAppIcon=$iconFile" `
+            "windows\installer\setup.iss"
+
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: backlogforge-windows
-          path: release/
+          path: installer-output\BacklogForge-Setup-*.exe
 
   build-linux:
     runs-on: ubuntu-latest
@@ -168,17 +184,11 @@ jobs:
           name: backlogforge-linux
           path: linux-build/
 
-      - name: Prepare Windows archive
-        run: |
-          cd windows-build
-          zip -r ../BacklogForge-Windows-${{ github.ref_name }}.zip .
-          cd ..
-
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            BacklogForge-Windows-${{ github.ref_name }}.zip
+            windows-build/BacklogForge-Setup-*.exe
             linux-build/BacklogForge-*.AppImage
           draft: true
           generate_release_notes: true
