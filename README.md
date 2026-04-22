@@ -14,13 +14,16 @@ The application is designed for PC gamers who own large Steam libraries and want
 
 ## Screenshots
 
-<img src="store_assets/screenshots/Screenshot_1.png" alt="Game library with playtime progress bars, search, and sorting filters" width="500"/>
-
-<img src="store_assets/screenshots/Screenshot_2.png" alt="Completed games list with status filters and completion tracking" width="500"/>
-
-<img src="store_assets/screenshots/Screenshot_3.png" alt="Play Next recommendations showing suggested games to play next" width="500"/>
-
-<img src="store_assets/screenshots/Screenshot_4.png" alt="Library statistics dashboard with completion rate and playtime summary" width="500"/>
+<table>
+  <tr>
+    <td><img src="store_assets/screenshots/Screenshot_1.png" alt="Game library with playtime progress bars, search, and sorting filters" width="300"/></td>
+    <td><img src="store_assets/screenshots/Screenshot_2.png" alt="Completed games list with status filters and completion tracking" width="300"/></td>
+  </tr>
+  <tr>
+    <td><img src="store_assets/screenshots/Screenshot_3.png" alt="Play Next recommendations showing suggested games to play next" width="300"/></td>
+    <td><img src="store_assets/screenshots/Screenshot_4.png" alt="Library statistics dashboard with completion rate and playtime summary" width="300"/></td>
+  </tr>
+</table>
 
 
 ---
