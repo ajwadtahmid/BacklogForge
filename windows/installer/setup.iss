@@ -16,8 +16,7 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-; Install to user space without requiring admin/UAC
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
 ; x64 only — Flutter Windows builds target x64
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
