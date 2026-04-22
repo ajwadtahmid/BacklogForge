@@ -67,6 +67,7 @@ jobs:
             libxkbcommon-dev \
             libssl-dev \
             libsecret-1-dev \
+            libsqlite3-0 \
             zsync
 
       - name: Get dependencies
