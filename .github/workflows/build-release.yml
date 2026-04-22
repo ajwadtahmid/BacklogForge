@@ -67,6 +67,7 @@ jobs:
             libxkbcommon-dev \
             libssl-dev \
             libsecret-1-dev \
+            libsqlite3-dev \
             libsqlite3-0 \
             zsync
 
@@ -90,13 +91,33 @@ jobs:
 
       - name: Create AppImage
         run: |
-          # Copy entire Flutter bundle to AppDir/usr/bin
-          # This preserves the relative lib/ path that the binary expects
+          BUNDLE=build/linux/x64/release/bundle
+
+          # Copy entire Flutter bundle — preserves relative lib/ path the binary expects
           mkdir -p AppDir/usr/bin
-          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
+          cp -r $BUNDLE/* AppDir/usr/bin/
           chmod +x AppDir/usr/bin/backlogforge
 
-          # Create .desktop file
+          # Bundle libsqlite3 — sqlite3 (Dart) loads it dynamically via FFI,
+          # so linuxdeploy won't detect it from RPATH. Must be manually included.
+          SQLITE_LIB=$(dpkg -L libsqlite3-0 | grep 'libsqlite3.so.0$')
+          cp "$SQLITE_LIB" AppDir/usr/bin/lib/
+          ln -sf libsqlite3.so.0 AppDir/usr/bin/lib/libsqlite3.so
+
+          # Bundle libsecret — flutter_secure_storage also loads it via FFI
+          SECRET_LIB=$(dpkg -L libsecret-1-0 | grep 'libsecret-1.so.0$')
+          cp "$SECRET_LIB" AppDir/usr/bin/lib/
+
+          # AppRun — sets LD_LIBRARY_PATH so bundled libs are found at runtime
+          cat > AppDir/AppRun << 'APPRUN'
+          #!/bin/bash
+          APPDIR="$(cd "$(dirname "$0")" && pwd)"
+          export LD_LIBRARY_PATH="$APPDIR/usr/bin/lib:$LD_LIBRARY_PATH"
+          exec "$APPDIR/usr/bin/backlogforge" "$@"
+          APPRUN
+          chmod +x AppDir/AppRun
+
+          # Desktop file
           mkdir -p AppDir/usr/share/applications
           cat > AppDir/usr/share/applications/com.example.backlogforge.desktop << 'EOF'
           [Desktop Entry]
@@ -109,14 +130,13 @@ jobs:
           Terminal=false
           EOF
 
-          # Copy app icon if available
+          # Icon
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
           if [ -f "store_assets/logos/linux_flathub/icon_256x256.png" ]; then
             cp store_assets/logos/linux_flathub/icon_256x256.png \
               AppDir/usr/share/icons/hicolor/256x256/apps/com.example.backlogforge.png
           fi
 
-          # Build AppImage - linuxdeploy will find all libs via binary RPATH
           export VERSION="${GITHUB_REF#refs/tags/v}"
           ./linuxdeploy/linuxdeploy-x86_64.AppImage \
             --appdir AppDir \
