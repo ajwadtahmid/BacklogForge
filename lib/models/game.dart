@@ -21,4 +21,9 @@ extension GameArtwork on Game {
           completionistHours ?? extendedHours ?? essentialHours,
         PlayStyle.essential => essentialHours,
       };
+
+  /// Fallback target hours using priority: essential > extended > completionist.
+  /// Used for display when playStyle-selected hours are unavailable.
+  double? get targetHoursWithFallback =>
+    essentialHours ?? extendedHours ?? completionistHours;
 }

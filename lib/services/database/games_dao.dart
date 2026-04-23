@@ -189,6 +189,59 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
         CompletionThreshold.essential;
   }
 
+  List<OrderClauseGenerator<$GamesTable>> _orderForBacklog(SortMode mode) {
+    switch (mode) {
+      case SortMode.alphabetical:
+        return [
+          (g) => OrderingTerm(expression: g.name, mode: OrderingMode.asc)
+        ];
+      case SortMode.progress:
+        return [
+          (g) => OrderingTerm.desc(
+                const CustomExpression<double>(
+                  "CAST(playtime_minutes AS REAL) / 60.0 / "
+                  "CASE play_style "
+                  "WHEN 'extended' THEN COALESCE(extended_hours, essential_hours, 9999.0) "
+                  "WHEN 'completionist' THEN COALESCE(completionist_hours, extended_hours, essential_hours, 9999.0) "
+                  "ELSE COALESCE(essential_hours, 9999.0) END",
+                ),
+              ),
+        ];
+      case SortMode.shortest:
+        // Shortest remaining time: (target - played). Games with no HLTB data go to end.
+        return [
+          (g) => OrderingTerm(
+              expression: const CustomExpression<double>(
+                "COALESCE(essential_hours, extended_hours, completionist_hours)"
+              ).isNull(),
+              mode: OrderingMode.asc),
+          (g) => OrderingTerm.asc(
+            const CustomExpression<double>(
+              "COALESCE(essential_hours, extended_hours, completionist_hours) - CAST(playtime_minutes AS REAL) / 60.0"
+            ),
+          ),
+        ];
+      case SortMode.longest:
+        // Longest remaining time: (target - played). Games with no HLTB data go to end.
+        return [
+          (g) => OrderingTerm(
+              expression: const CustomExpression<double>(
+                "COALESCE(essential_hours, extended_hours, completionist_hours)"
+              ).isNull(),
+              mode: OrderingMode.asc),
+          (g) => OrderingTerm.desc(
+            const CustomExpression<double>(
+              "COALESCE(essential_hours, extended_hours, completionist_hours) - CAST(playtime_minutes AS REAL) / 60.0"
+            ),
+          ),
+        ];
+      case SortMode.mostPlayed:
+        return [(g) => OrderingTerm.desc(g.playtimeMinutes)];
+      case SortMode.neglected:
+        return [(g) => OrderingTerm.asc(g.addedAt)];
+    }
+  }
+
   List<OrderClauseGenerator<$GamesTable>> _orderFor(SortMode mode) {
     switch (mode) {
       case SortMode.alphabetical:
@@ -212,14 +265,28 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
       case SortMode.shortest:
         return [
           (g) => OrderingTerm(
-              expression: g.extendedHours.isNull(), mode: OrderingMode.asc),
-          (g) => OrderingTerm.asc(g.extendedHours),
+              expression: const CustomExpression<double>(
+                "COALESCE(essential_hours, extended_hours, completionist_hours)"
+              ).isNull(),
+              mode: OrderingMode.asc),
+          (g) => OrderingTerm.asc(
+            const CustomExpression<double>(
+              "COALESCE(essential_hours, extended_hours, completionist_hours)"
+            ),
+          ),
         ];
       case SortMode.longest:
         return [
           (g) => OrderingTerm(
-              expression: g.extendedHours.isNull(), mode: OrderingMode.asc),
-          (g) => OrderingTerm.desc(g.extendedHours),
+              expression: const CustomExpression<double>(
+                "COALESCE(essential_hours, extended_hours, completionist_hours)"
+              ).isNull(),
+              mode: OrderingMode.asc),
+          (g) => OrderingTerm.desc(
+            const CustomExpression<double>(
+              "COALESCE(essential_hours, extended_hours, completionist_hours)"
+            ),
+          ),
         ];
       case SortMode.mostPlayed:
         return [(g) => OrderingTerm.desc(g.playtimeMinutes)];
@@ -231,6 +298,7 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
   /// Backlog games sorted by [mode]. Playing games are always pinned to the
   /// top regardless of sort mode. Neglected mode additionally filters to games
   /// with zero playtime. Excludes completed games being re-played.
+  /// Shortest/Longest sort by remaining time (target - playtime).
   Future<List<Game>> backlogSorted(SortMode mode, String steamId) {
     return (select(games)
           ..where((g) {
@@ -244,7 +312,7 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
           // Playing games float to top ('playing' > 'backlog' alphabetically).
           ..orderBy([
             (g) => OrderingTerm.desc(g.status),
-            ..._orderFor(mode),
+            ..._orderForBacklog(mode),
           ]))
         .get();
   }

@@ -112,6 +112,57 @@ class _BacklogTabState extends ConsumerState<BacklogTab> {
     super.dispose();
   }
 
+  void _showSortSheet(BuildContext context, WidgetRef ref, SortMode current) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'Sort by',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            ...[
+              (SortMode.alphabetical, 'A-Z'),
+              (SortMode.progress, 'Progress'),
+              (SortMode.shortest, 'Shortest remaining'),
+              (SortMode.longest, 'Longest remaining'),
+              (SortMode.mostPlayed, 'Most played'),
+              (SortMode.neglected, 'Unplayed'),
+            ].map((e) {
+              final (mode, label) = e;
+              final isSelected = current == mode;
+              return ListTile(
+                leading: isSelected ? const Icon(Icons.check) : null,
+                title: Text(label),
+                selected: isSelected,
+                onTap: () {
+                  ref.read(backlogSortModeProvider.notifier).setSortMode(mode);
+                  Navigator.pop(ctx);
+                },
+              );
+            }),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _sortLabel(SortMode mode) => switch (mode) {
+    SortMode.alphabetical => 'A-Z',
+    SortMode.progress => 'Progress',
+    SortMode.shortest => 'Shortest remaining',
+    SortMode.longest => 'Longest remaining',
+    SortMode.mostPlayed => 'Played',
+    SortMode.neglected => 'Unplayed',
+    _ => 'Sort',
+  };
+
   @override
   Widget build(BuildContext context) {
     final sortMode = ref.watch(backlogSortModeProvider);
@@ -145,18 +196,19 @@ class _BacklogTabState extends ConsumerState<BacklogTab> {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: SegmentedButton<SortMode>(
-            segments: const [
-              ButtonSegment(value: SortMode.alphabetical, label: Text('A-Z')),
-              ButtonSegment(value: SortMode.progress, label: Text('Progress')),
-              ButtonSegment(value: SortMode.shortest, label: Text('Shortest')),
-              ButtonSegment(value: SortMode.longest, label: Text('Longest')),
-              ButtonSegment(value: SortMode.mostPlayed, label: Text('Played')),
-              ButtonSegment(value: SortMode.neglected, label: Text('Unplayed')),
+          child: Row(
+            children: [
+              Text(
+                'Sort: ${_sortLabel(sortMode)}',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.sort),
+                tooltip: 'Sort options',
+                onPressed: () => _showSortSheet(context, ref, sortMode),
+              ),
             ],
-            selected: {sortMode},
-            onSelectionChanged: (s) =>
-                ref.read(backlogSortModeProvider.notifier).setSortMode(s.first),
           ),
         ),
         Expanded(
@@ -207,6 +259,56 @@ class _CompletedTabState extends ConsumerState<CompletedTab> {
     super.dispose();
   }
 
+  void _showSortSheetCompleted(BuildContext context, WidgetRef ref, SortMode current) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'Sort by',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            ...[
+              (SortMode.alphabetical, 'A-Z'),
+              (SortMode.progress, 'Progress'),
+              (SortMode.shortest, 'Shortest playtime'),
+              (SortMode.longest, 'Longest playtime'),
+              (SortMode.mostPlayed, 'Most played'),
+            ].map((e) {
+              final (mode, label) = e;
+              final isSelected = current == mode;
+              return ListTile(
+                leading: isSelected ? const Icon(Icons.check) : null,
+                title: Text(label),
+                selected: isSelected,
+                onTap: () {
+                  ref.read(completedSortModeProvider.notifier).setSortMode(mode);
+                  Navigator.pop(ctx);
+                },
+              );
+            }),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _sortLabel(SortMode mode) => switch (mode) {
+    SortMode.alphabetical => 'A-Z',
+    SortMode.progress => 'Progress',
+    SortMode.shortest => 'Shortest',
+    SortMode.longest => 'Longest',
+    SortMode.mostPlayed => 'Played',
+    SortMode.neglected => 'Unplayed',
+    _ => 'Sort',
+  };
+
   @override
   Widget build(BuildContext context) {
     final sortMode = ref.watch(completedSortModeProvider);
@@ -240,18 +342,20 @@ class _CompletedTabState extends ConsumerState<CompletedTab> {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: SegmentedButton<SortMode>(
-            segments: const [
-              ButtonSegment(value: SortMode.alphabetical, label: Text('A-Z')),
-              ButtonSegment(value: SortMode.progress, label: Text('Progress')),
-              ButtonSegment(value: SortMode.shortest, label: Text('Shortest')),
-              ButtonSegment(value: SortMode.longest, label: Text('Longest')),
-              ButtonSegment(value: SortMode.mostPlayed, label: Text('Played')),
+          child: Row(
+            children: [
+              Text(
+                'Sort: ${_sortLabel(sortMode)}',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.sort),
+                tooltip: 'Sort options',
+                onPressed: () =>
+                    _showSortSheetCompleted(context, ref, sortMode),
+              ),
             ],
-            selected: {sortMode},
-            onSelectionChanged: (s) => ref
-                .read(completedSortModeProvider.notifier)
-                .setSortMode(s.first),
           ),
         ),
         Expanded(

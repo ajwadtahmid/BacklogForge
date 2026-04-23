@@ -1,6 +1,6 @@
 #define MyAppName "BacklogForge"
 #define MyAppExeName "backlogforge.exe"
-#define MyAppPublisher "Ajwadtahmid"
+#define MyAppPublisher "ajwadtahmid"
 
 [Setup]
 AppId={{F3A9B2C1-D4E5-4678-9ABC-DEF012345678}

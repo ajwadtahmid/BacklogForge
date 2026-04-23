@@ -28,7 +28,7 @@ class GameCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isPlaying = game.status.toGameStatus == GameStatus.playing;
     final hoursPlayed = game.playtimeMinutes / 60.0;
-    final target = game.targetHours;
+    final target = game.targetHours ?? game.targetHoursWithFallback;
     final progress =
         target != null ? (hoursPlayed / target).clamp(0.0, 1.0) : null;
 
