@@ -7,7 +7,6 @@ AppId={{F3A9B2C1-D4E5-4678-9ABC-DEF012345678}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
-AppDisplayName={#MyAppName}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 OutputBaseFilename={#OutputFilename}
