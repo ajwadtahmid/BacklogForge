@@ -190,7 +190,7 @@ class _BacklogTabState extends ConsumerState<BacklogTab> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
           child: TextField(
             controller: _searchController,
             decoration: InputDecoration(
@@ -340,7 +340,7 @@ class _CompletedTabState extends ConsumerState<CompletedTab> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
           child: TextField(
             controller: _searchController,
             decoration: InputDecoration(
@@ -421,7 +421,7 @@ class PlayNextTab extends ConsumerWidget {
     final notifier = ref.read(playNextProvider.notifier);
 
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
