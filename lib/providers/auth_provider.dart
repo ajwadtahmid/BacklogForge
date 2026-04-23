@@ -33,20 +33,33 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
 
   @override
   Future<AuthState> build() async {
-    /// Loads the user's persisted Steam ID from secure storage; returns signed-out state if not found.
-    final steamId = await _secureStorage.read(key: _steamIdKey);
-    return steamId != null
-        ? AuthState.signedIn(steamId)
-        : const AuthState.signedOut();
+    try {
+      /// Loads the user's persisted Steam ID from secure storage; returns signed-out state if not found.
+      final steamId = await _secureStorage.read(key: _steamIdKey);
+      return steamId != null
+          ? AuthState.signedIn(steamId)
+          : const AuthState.signedOut();
+    } catch (e) {
+      /// Secure storage may fail during cipher migration on first launch; default to signed-out
+      return const AuthState.signedOut();
+    }
   }
 
   /// Persists the Steam ID to secure storage, seeds settings for this user if
   /// this is their first sign-in, then updates auth state.
+  /// For guest users, skips secure storage persistence.
   Future<void> completeSignIn(String steamId) async {
-    await _secureStorage.write(key: _steamIdKey, value: steamId);
-    final db = ref.read(databaseProvider);
-    await db.settingsDao.seedIfAbsent(steamId);
-    state = AsyncValue.data(AuthState.signedIn(steamId));
+    try {
+      final isGuest = steamId == 'guest_user';
+      if (!isGuest) {
+        await _secureStorage.write(key: _steamIdKey, value: steamId);
+      }
+      final db = ref.read(databaseProvider);
+      await db.settingsDao.seedIfAbsent(steamId);
+      state = AsyncValue.data(AuthState.signedIn(steamId));
+    } catch (e) {
+      state = AsyncValue.error(Exception('Failed to sign in: $e'), StackTrace.current);
+    }
   }
 
   /// Updates state with a validation error when the Steam redirect is invalid.

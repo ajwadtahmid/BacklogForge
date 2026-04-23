@@ -12,6 +12,7 @@ import '../services/database/games_dao.dart';
 import '../models/game.dart';
 import '../widgets/game_card.dart';
 import 'manual_search_screen.dart';
+import 'onboarding_screen.dart';
 
 class LibraryScreen extends ConsumerWidget {
   const LibraryScreen({super.key});
@@ -73,9 +74,28 @@ class LibraryScreen extends ConsumerWidget {
                   onPressed: () => ref.read(syncStateProvider.notifier).sync(),
                 ),
               ),
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () => ref.read(authProvider.notifier).signOut(),
+            Consumer(
+              builder: (context, ref, _) {
+                final authAsync = ref.watch(authProvider);
+                return authAsync.whenOrNull(
+                  data: (auth) {
+                    final isGuest = auth.steamId == 'guest_user';
+                    return IconButton(
+                      icon: Icon(isGuest ? Icons.login : Icons.logout),
+                      tooltip: isGuest ? 'Sign in with Steam' : 'Sign out',
+                      onPressed: isGuest
+                          ? () => showModalBottomSheet(
+                                context: context,
+                                builder: (_) => const SignInSheet(),
+                              )
+                          : () => ref.read(authProvider.notifier).signOut(),
+                    );
+                  },
+                ) ?? IconButton(
+                  icon: const Icon(Icons.logout),
+                  onPressed: null,
+                );
+              },
             ),
           ],
           bottom: const TabBar(
