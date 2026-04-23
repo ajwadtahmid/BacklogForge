@@ -160,7 +160,6 @@ class _BacklogTabState extends ConsumerState<BacklogTab> {
     SortMode.longest => 'Longest remaining',
     SortMode.mostPlayed => 'Played',
     SortMode.neglected => 'Unplayed',
-    _ => 'Sort',
   };
 
   @override
@@ -219,9 +218,8 @@ class _BacklogTabState extends ConsumerState<BacklogTab> {
               final filtered = _query.isEmpty
                   ? games
                   : games
-                      .where((g) =>
-                          g.name.toLowerCase().contains(_query))
-                      .toList();
+                        .where((g) => g.name.toLowerCase().contains(_query))
+                        .toList();
               if (filtered.isEmpty) {
                 return Center(
                   child: Text(
@@ -259,7 +257,11 @@ class _CompletedTabState extends ConsumerState<CompletedTab> {
     super.dispose();
   }
 
-  void _showSortSheetCompleted(BuildContext context, WidgetRef ref, SortMode current) {
+  void _showSortSheetCompleted(
+    BuildContext context,
+    WidgetRef ref,
+    SortMode current,
+  ) {
     showModalBottomSheet(
       context: context,
       builder: (ctx) => SafeArea(
@@ -287,7 +289,9 @@ class _CompletedTabState extends ConsumerState<CompletedTab> {
                 title: Text(label),
                 selected: isSelected,
                 onTap: () {
-                  ref.read(completedSortModeProvider.notifier).setSortMode(mode);
+                  ref
+                      .read(completedSortModeProvider.notifier)
+                      .setSortMode(mode);
                   Navigator.pop(ctx);
                 },
               );
@@ -306,7 +310,6 @@ class _CompletedTabState extends ConsumerState<CompletedTab> {
     SortMode.longest => 'Longest',
     SortMode.mostPlayed => 'Played',
     SortMode.neglected => 'Unplayed',
-    _ => 'Sort',
   };
 
   @override
@@ -366,9 +369,8 @@ class _CompletedTabState extends ConsumerState<CompletedTab> {
               final filtered = _query.isEmpty
                   ? games
                   : games
-                      .where((g) =>
-                          g.name.toLowerCase().contains(_query))
-                      .toList();
+                        .where((g) => g.name.toLowerCase().contains(_query))
+                        .toList();
               if (filtered.isEmpty) {
                 return Center(
                   child: Text(
@@ -499,7 +501,7 @@ class _PicksSection extends StatelessWidget {
               itemCount: picks.length,
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, i) =>
-                  SizedBox(height: 90, child: _PickCard(game: picks[i])),
+                  SizedBox(height: 100, child: _PickCard(game: picks[i])),
             ),
           ),
         ],
@@ -577,15 +579,17 @@ class StatsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statsAsync = ref.watch(statsProvider);
+    final isWideScreen = MediaQuery.of(context).size.width > 600;
+
     return statsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (stats) => GridView.count(
-        crossAxisCount: 2,
+        crossAxisCount: isWideScreen ? 3 : 2,
         padding: const EdgeInsets.all(16),
         mainAxisSpacing: 8,
         crossAxisSpacing: 8,
-        childAspectRatio: 3,
+        childAspectRatio: isWideScreen ? 2.5 : 1.4,
         children: [
           _StatCard(
             label: 'Games in Backlog',
