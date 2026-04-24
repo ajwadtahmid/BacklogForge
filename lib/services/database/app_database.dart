@@ -1,5 +1,9 @@
 import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
+import 'dart:io';
 import 'tables.dart';
 import 'games_dao.dart';
 import 'settings_dao.dart';
@@ -51,5 +55,14 @@ class AppDatabase extends _$AppDatabase {
     },
   );
 
-  static QueryExecutor _open() => driftDatabase(name: 'backlogforge');
+  static QueryExecutor _open() {
+    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+      return LazyDatabase(() async {
+        final dir = await getApplicationSupportDirectory();
+        final dbFile = File(p.join(dir.path, 'backlogforge.db'));
+        return NativeDatabase(dbFile);
+      });
+    }
+    return driftDatabase(name: 'backlogforge');
+  }
 }
