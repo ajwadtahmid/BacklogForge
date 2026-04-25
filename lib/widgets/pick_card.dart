@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../services/database/app_database.dart';
 import '../models/game.dart';
+import 'artwork_image.dart';
 
 class PickCard extends StatelessWidget {
   const PickCard({
@@ -32,19 +32,10 @@ class PickCard extends StatelessWidget {
         onTap: () => context.push('/library/game/${game.id}', extra: game),
         child: Row(
           children: [
-            SizedBox(
+            ArtworkImage(
+              url: game.artworkUrl,
               width: 120,
               height: 90,
-              child: CachedNetworkImage(
-                imageUrl: game.artworkUrl,
-                fit: BoxFit.cover,
-                placeholder: (context, url) =>
-                    const Center(child: CircularProgressIndicator()),
-                errorWidget: (context, url, error) => Container(
-                  color: Colors.grey[800],
-                  child: const Icon(Icons.image_not_supported),
-                ),
-              ),
             ),
             const SizedBox(width: 12),
             Expanded(

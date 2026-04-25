@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +8,7 @@ import '../providers/game_actions_provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/database/app_database.dart';
 import '../services/steam_service.dart';
+import '../widgets/artwork_image.dart';
 import 'hltb_update_screen.dart';
 
 /// Full-screen detail view for a single game.
@@ -193,17 +193,9 @@ class _GameDetailScreenState extends ConsumerState<GameDetailScreen> {
                 children: [
                   Hero(
                     tag: 'artwork_${game.id}',
-                    child: CachedNetworkImage(
-                      imageUrl: game.artworkUrl,
-                      fit: BoxFit.cover,
+                    child: ArtworkImage(
+                      url: game.artworkUrl,
                       alignment: Alignment.topCenter,
-                      placeholder: (context, url) =>
-                          Container(color: Colors.grey[900]),
-                      errorWidget: (context, url, error) => Container(
-                        color: Colors.grey[900],
-                        child:
-                            const Icon(Icons.image_not_supported, size: 48),
-                      ),
                     ),
                   ),
                   DecoratedBox(

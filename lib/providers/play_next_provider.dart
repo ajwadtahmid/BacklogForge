@@ -64,6 +64,10 @@ class PlayNextState {
 }
 
 class PlayNextNotifier extends Notifier<PlayNextState> {
+  // Weight cache — invalidated whenever the backlog's content changes.
+  String? _backlogFingerprint;
+  Map<int, double> _weightCache = {};
+
   @override
   PlayNextState build() => const PlayNextState();
 
@@ -125,15 +129,21 @@ class PlayNextNotifier extends Notifier<PlayNextState> {
         .gamesDao
         .getBacklog(steamId);
 
-    // Preserve locked picks; only refill unlocked slots.
+    // Drop lock IDs for games that no longer exist in the backlog (e.g. deleted).
+    final backlogIds = {for (final g in backlog) g.id};
+    final validLockedIds = state.lockedIds.intersection(backlogIds);
+
+    // Preserve valid locked picks; refill all other slots.
     final lockedPicks = state.picks
-        .where((g) => state.lockedIds.contains(g.id))
+        .where((g) => validLockedIds.contains(g.id))
         .toList();
     final slotsNeeded = 5 - lockedPicks.length;
-    final pool = backlog.where((g) => !state.lockedIds.contains(g.id)).toList();
-    final newPicks = _weightedSample(pool, slotsNeeded);
+    final pool = backlog.where((g) => !validLockedIds.contains(g.id)).toList();
+    final weights = _getOrBuildWeights(backlog);
+    final newPicks = _weightedSample(pool, slotsNeeded, weights);
 
-    // Rebuild: keep locked games in their original positions.
+    // Rebuild: keep valid locked games in their original positions;
+    // slots vacated by deleted locked games are filled from newPicks.
     final List<Game> finalPicks;
     if (lockedPicks.isEmpty || state.picks.isEmpty) {
       finalPicks = newPicks;
@@ -141,7 +151,7 @@ class PlayNextNotifier extends Notifier<PlayNextState> {
       int newIdx = 0;
       final rebuilt = <Game>[];
       for (final existing in state.picks) {
-        if (state.lockedIds.contains(existing.id)) {
+        if (validLockedIds.contains(existing.id)) {
           rebuilt.add(existing);
         } else if (newIdx < newPicks.length) {
           rebuilt.add(newPicks[newIdx++]);
@@ -153,7 +163,12 @@ class PlayNextNotifier extends Notifier<PlayNextState> {
       finalPicks = rebuilt;
     }
 
-    state = state.copyWith(picks: finalPicks, loading: false, spun: true);
+    state = state.copyWith(
+      picks: finalPicks,
+      loading: false,
+      spun: true,
+      lockedIds: validLockedIds,
+    );
   }
 
   List<Game> _pickFocused(List<Game> pool, FocusedView view, int n) {
@@ -182,44 +197,68 @@ class PlayNextNotifier extends Notifier<PlayNextState> {
     }
   }
 
-  /// Weighted random sample without replacement.
+  /// Returns the cached weight map for [backlog], rebuilding only when the
+  /// backlog's playtime or play-history has changed since the last call.
+  Map<int, double> _getOrBuildWeights(List<Game> backlog) {
+    final fp = _fingerprint(backlog);
+    if (fp == _backlogFingerprint) return _weightCache;
+    _backlogFingerprint = fp;
+    _weightCache = _buildWeightMap(backlog);
+    return _weightCache;
+  }
+
+  /// Cheap fingerprint over the fields that affect weight scores.
+  static String _fingerprint(List<Game> games) {
+    final buf = StringBuffer();
+    for (final g in games) {
+      buf
+        ..write(g.id)
+        ..write(':')
+        ..write(g.playtimeMinutes)
+        ..write(':')
+        ..write(g.lastPlayedAt?.millisecondsSinceEpoch ?? 0)
+        ..write(',');
+    }
+    return buf.toString();
+  }
+
+  /// Computes a weight for every game in [pool].
   ///
-  /// Score formula per game:
+  /// Score formula:
   ///   neglect = log(min(daysOwned, 365) + 1) / (hoursPlayed + 1)
-  ///   aging   = +0.05 per full year owned beyond year 1, capped at 9 years (+0.45 max) for a total of 10 years
+  ///   aging   = +0.05 per full year owned beyond year 1, capped at 9 years
   ///   new     = +0.5 * exp(-daysOwned / 90)   ← boost for recently-bought games
   ///   recent  = +0.5 * exp(-daysSincePlayed / 90)  ← boost for recently-played games
   ///
   /// Clamped to 0.01 so every game has a non-zero chance.
-  List<Game> _weightedSample(List<Game> pool, int n) {
-    if (pool.isEmpty) return [];
-    final rng = Random();
+  static Map<int, double> _buildWeightMap(List<Game> pool) {
     final now = DateTime.now();
-
-    final weighted = pool.map((g) {
+    final result = <int, double>{};
+    for (final g in pool) {
       final daysOwned = now.difference(g.addedAt).inDays.toDouble();
       final hours = g.playtimeMinutes / 60.0;
-
-      // Neglect score: capped at 365 days so very old games don't dominate.
       final clampedDays = daysOwned.clamp(0.0, 365.0);
       double score = log(clampedDays + 1) / (hours + 1);
-
-      // Small aging bonus for games owned > 1 year, up to 10 years (+0.45 max).
       final extraYears = ((daysOwned - 365.0) / 365.0).clamp(0.0, 9.0);
       score += extraYears * 0.05;
-
-      // New-purchase boost: prioritises recently-bought games.
       score += 0.5 * exp(-daysOwned / 90.0);
-
-      // Recency boost: keeps recently-played games visible for 3 months.
       final lp = g.lastPlayedAt;
       if (lp != null) {
-        final daysSincePlayed = now.difference(lp).inDays.toDouble();
-        score += 0.5 * exp(-daysSincePlayed / 90.0);
+        score += 0.5 * exp(-now.difference(lp).inDays.toDouble() / 90.0);
       }
+      result[g.id] = score.clamp(0.01, double.infinity);
+    }
+    return result;
+  }
 
-      return (game: g, weight: score.clamp(0.01, double.infinity));
-    }).toList();
+  /// Weighted random sample without replacement from [pool], using pre-computed
+  /// [weights]. Falls back to 0.01 for any game not found in the map.
+  List<Game> _weightedSample(List<Game> pool, int n, Map<int, double> weights) {
+    if (pool.isEmpty) return [];
+    final rng = Random();
+    final weighted = pool
+        .map((g) => (game: g, weight: weights[g.id] ?? 0.01))
+        .toList();
 
     final picks = <Game>[];
     final remaining = List.of(weighted);

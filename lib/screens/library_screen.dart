@@ -55,7 +55,7 @@ class LibraryScreen extends ConsumerWidget {
                     ? ThemeMode.light
                     : ThemeMode.dark;
                 await ref
-                    .read(themeModeNotifierProvider.notifier)
+                    .read(themeProvider.notifier)
                     .setTheme(currentMode);
               },
             ),
@@ -65,14 +65,15 @@ class LibraryScreen extends ConsumerWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (syncState.hltbTotal != null)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: Text(
-                          '${syncState.hltbCurrent}/${syncState.hltbTotal}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: Text(
+                        syncState.hltbTotal != null
+                            ? '${syncState.hltbCurrent}/${syncState.hltbTotal}'
+                            : 'Fetching library…',
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
+                    ),
                     const SizedBox(
                       width: 20,
                       height: 20,
@@ -82,17 +83,32 @@ class LibraryScreen extends ConsumerWidget {
                 ),
               )
             else
-              Tooltip(
-                message: syncState.errorMessage ?? 'Sync with Steam',
-                child: IconButton(
-                  icon: Icon(
-                    Icons.refresh,
-                    color: syncState.status == SyncStatus.error
-                        ? Colors.red
-                        : null,
-                  ),
-                  onPressed: () => ref.read(syncStateProvider.notifier).sync(),
-                ),
+              Consumer(
+                builder: (context, ref, _) {
+                  final authAsync = ref.watch(authProvider);
+                  final isGuest = authAsync.whenOrNull(
+                        data: (auth) =>
+                            auth.steamId == AuthNotifier.guestSteamId,
+                      ) ??
+                      false;
+                  return Tooltip(
+                    message: isGuest
+                        ? 'Sign in with Steam to sync your library'
+                        : (syncState.errorMessage ?? 'Sync with Steam'),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.refresh,
+                        color: syncState.status == SyncStatus.error
+                            ? Colors.red
+                            : null,
+                      ),
+                      onPressed: isGuest
+                          ? null
+                          : () =>
+                              ref.read(syncStateProvider.notifier).sync(),
+                    ),
+                  );
+                },
               ),
             Consumer(
               builder: (context, ref, _) {

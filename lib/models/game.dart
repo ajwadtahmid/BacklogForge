@@ -9,7 +9,7 @@ extension GameArtwork on Game {
   String get artworkUrl {
     if (appId > 0) return steamArtworkUrl(appId);
     return hltbImageUrl ??
-        'https://placehold.co/460x215/2F2F2F/FFFFFF/png?text=No+Artwork';
+        '/assets/artwork/no_artwork.png';
   }
 
   /// Hours target for the progress bar, resolved from the game's stored play style.

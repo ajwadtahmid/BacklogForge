@@ -17,11 +17,13 @@ class SteamGame {
   });
 
   factory SteamGame.fromJson(Map<String, dynamic> j) {
-    final rtime = j['rtime_last_played'] as int?;
+    // Steam occasionally returns numeric fields as doubles in some API versions;
+    // casting via num avoids a runtime TypeError if the type is not exactly int.
+    final rtime = (j['rtime_last_played'] as num?)?.toInt();
     return SteamGame(
-      appId: j['appid'] as int,
+      appId: (j['appid'] as num).toInt(),
       name: j['name'] as String,
-      playtimeMinutes: j['playtime_forever'] as int,
+      playtimeMinutes: (j['playtime_forever'] as num?)?.toInt() ?? 0,
       // Steam returns 0 for rtime_last_played when a game has never been launched.
       lastPlayedAt: (rtime != null && rtime > 0)
           ? DateTime.fromMillisecondsSinceEpoch(rtime * 1000)

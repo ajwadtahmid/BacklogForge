@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +7,7 @@ import '../providers/database_provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/game_actions_provider.dart';
 import '../services/app_logger.dart';
+import '../widgets/artwork_image.dart';
 import '../models/game_search_result.dart';
 import '../models/time_to_beat.dart';
 
@@ -160,37 +160,10 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
                                     child: ListTile(
                                       leading: SizedBox(
                                         width: 50,
-                                        child: result.artworkUrl != null
-                                            ? CachedNetworkImage(
-                                                imageUrl: result.artworkUrl!,
-                                                fit: BoxFit.cover,
-                                                placeholder: (context, url) =>
-                                                    Container(
-                                                  color: Colors.grey[300],
-                                                  child: const Center(
-                                                    child: SizedBox(
-                                                      width: 16,
-                                                      height: 16,
-                                                      child: CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                errorWidget: (context, url, error) =>
-                                                    Container(
-                                                  color: Colors.grey[300],
-                                                  child: const Icon(
-                                                    Icons.image_not_supported,
-                                                  ),
-                                                ),
-                                              )
-                                            : Container(
-                                                color: Colors.grey[300],
-                                                child: const Icon(
-                                                  Icons.image_not_supported,
-                                                ),
-                                              ),
+                                        child: ArtworkImage(
+                                          url: result.artworkUrl,
+                                          width: 50,
+                                        ),
                                       ),
                                       title: Text(result.name),
                                       subtitle: hasTtb

@@ -68,40 +68,20 @@ final statsProvider = FutureProvider<GameStats>((ref) async {
     );
   }
 
-  final dao = ref.watch(databaseProvider).statsDao;
-  final results = await Future.wait([
-    dao.backlogCount(steamId),              // 0
-    dao.completedLastFourMonths(steamId),   // 1
-    dao.completedCount(steamId),            // 2
-    dao.playingCount(steamId),              // 3
-    dao.totalHoursPlayed(steamId),          // 4
-    dao.backlogStats(steamId),              // 5
-  ]);
-
-  final backlogCount = results[0] as int;
-  final completedCount = results[2] as int;
-  final total = backlogCount + completedCount;
-  final completionPercent = total == 0 ? 0.0 : (completedCount / total) * 100;
-  final analysis = results[5] as ({
-    double hoursRemaining,
-    int neverStarted,
-    int barelyPlayed,
-    int halfwayDone,
-    int hltbCovered,
-    int hltbTotal,
-  });
+  final s = await ref.watch(databaseProvider).statsDao.computeStats(steamId);
+  final total = s.backlog + s.completed;
 
   return GameStats(
-    backlogCount: backlogCount,
-    hoursRemaining: analysis.hoursRemaining,
-    totalHoursPlayed: results[4] as double,
-    neverStartedCount: analysis.neverStarted,
-    barelyPlayedCount: analysis.barelyPlayed,
-    halfwayDoneCount: analysis.halfwayDone,
-    completedQuarterly: results[1] as int,
-    completionPercent: completionPercent,
-    playingCount: results[3] as int,
-    hltbCovered: analysis.hltbCovered,
-    hltbTotal: analysis.hltbTotal,
+    backlogCount: s.backlog,
+    hoursRemaining: s.analysis.hoursRemaining,
+    totalHoursPlayed: s.totalHours,
+    neverStartedCount: s.analysis.neverStarted,
+    barelyPlayedCount: s.analysis.barelyPlayed,
+    halfwayDoneCount: s.analysis.halfwayDone,
+    completedQuarterly: s.completedQuarterly,
+    completionPercent: total == 0 ? 0.0 : (s.completed / total) * 100,
+    playingCount: s.playing,
+    hltbCovered: s.analysis.hltbCovered,
+    hltbTotal: s.analysis.hltbTotal,
   );
 });

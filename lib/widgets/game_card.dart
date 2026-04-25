@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../services/database/app_database.dart';
 import '../models/game.dart';
 import '../models/game_status.dart';
 import '../providers/game_actions_provider.dart';
+import 'artwork_image.dart';
 
 /// A horizontal list row for a game, showing artwork, name, playtime progress,
 /// and HLTB estimates. Swipe right to delete (manual games) or see lock
@@ -214,29 +214,10 @@ class GameCard extends ConsumerWidget {
                 tag: 'artwork_${game.id}',
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(6),
-                  child: CachedNetworkImage(
-                    imageUrl: game.artworkUrl,
+                  child: ArtworkImage(
+                    url: game.artworkUrl,
                     width: 96,
                     height: 54,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      width: 96,
-                      height: 54,
-                      color: Colors.grey[800],
-                      child: const Center(
-                        child: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Container(
-                      width: 96,
-                      height: 54,
-                      color: Colors.grey[800],
-                      child: const Icon(Icons.image_not_supported, size: 20),
-                    ),
                   ),
                 ),
               ),

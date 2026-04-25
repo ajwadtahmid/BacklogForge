@@ -165,11 +165,9 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
         await (db.update(db.games)..where((g) => g.id.equals(game.id))).write(
           GamesCompanion(
             status: Value(newStatus.name),
-            // Stamp completedAt the first time a game is auto-completed so the
-            // completed tab can sort it by finish date.
-            completedAt: newStatus == GameStatus.completed &&
-                    game.completedAt == null
-                ? Value(now)
+            // Preserve the original completedAt; only stamp if never set before.
+            completedAt: newStatus == GameStatus.completed
+                ? Value(game.completedAt ?? now)
                 : const Value.absent(),
           ),
         );
@@ -202,19 +200,8 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
     );
   }
 
-  /// Maps legacy threshold string values (from older schema versions or settings)
-  /// to the current [CompletionThreshold] enum. Defaults to essential.
-  CompletionThreshold _parseThreshold(String value) {
-    const legacy = {
-      'main': CompletionThreshold.essential,
-      'mainPlusExtras': CompletionThreshold.extended,
-      'casually': CompletionThreshold.extended,
-      'extended': CompletionThreshold.extended,
-    };
-    return legacy[value] ??
-        CompletionThreshold.values.asNameMap()[value] ??
-        CompletionThreshold.essential;
-  }
+  CompletionThreshold _parseThreshold(String value) =>
+      CompletionThreshold.values.asNameMap()[value] ?? CompletionThreshold.essential;
 
   // Backlog sorts by remaining time (target − played); completed sorts by absolute hours.
   List<OrderClauseGenerator<$GamesTable>> _orderForBacklog(SortMode mode) =>

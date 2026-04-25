@@ -1,14 +1,21 @@
 import os
+import re
 import json
 import requests
+import concurrent.futures
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from howlongtobeatpy import HowLongToBeat, HowLongToBeatEntry
 
 app = Flask(__name__)
 CORS(app, origins=["https://backlogforge.onrender.com"])
 
+limiter = Limiter(get_remote_address, app=app, default_limits=[])
+
 _MAX_QUERY_LEN = 100
+_HLTB_TIMEOUT = 10          # seconds before giving up on a HowLongToBeat request
 _STEAM_API_KEY = os.getenv('STEAM_API_KEY', '')
 _STEAM_BASE = 'https://api.steampowered.com'
 
@@ -24,17 +31,39 @@ def _entry_to_dict(entry: HowLongToBeatEntry) -> dict:
     }
 
 
+def _hltb_search(q: str):
+    """Run HowLongToBeat().search() in a thread so we can apply a timeout.
+
+    HowLongToBeat().search() is a blocking HTTP call with no built-in timeout.
+    Wrapping it in a ThreadPoolExecutor lets us cancel via future.result(timeout=…)
+    without leaving the main thread stuck indefinitely.
+    """
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        future = pool.submit(HowLongToBeat().search, q)
+        return future.result(timeout=_HLTB_TIMEOUT)
+
+
 @app.route('/search')
+@limiter.limit("10/minute")
 def search():
+    """
+    Search HowLongToBeat by game title.
+    Query parameters:
+      - q:     Search query string (required)
+      - limit: Maximum number of results to return (default 10, max 20)
+    Returns a JSON array of matching game objects, or an error object on failure.
+    """
     q = request.args.get('q', '').strip()[:_MAX_QUERY_LEN]
     limit = min(int(request.args.get('limit', 10)), 20)
     if not q:
         return jsonify([])
 
     try:
-        results = HowLongToBeat().search(q)
+        results = _hltb_search(q)
+    except concurrent.futures.TimeoutError:
+        return jsonify({'error': 'search_timeout'}), 504
     except Exception:
-        return jsonify([])
+        return jsonify({'error': 'search_failed'}), 502
 
     if not results:
         return jsonify([])
@@ -43,6 +72,7 @@ def search():
 
 
 @app.route('/lookup')
+@limiter.limit("300/minute")
 def lookup():
     """Returns the best match above a similarity threshold, or null."""
     q = request.args.get('q', '').strip()[:_MAX_QUERY_LEN]
@@ -50,9 +80,11 @@ def lookup():
         return jsonify(None)
 
     try:
-        results = HowLongToBeat().search(q)
+        results = _hltb_search(q)
+    except concurrent.futures.TimeoutError:
+        return jsonify({'error': 'lookup_timeout'}), 504
     except Exception:
-        return jsonify(None)
+        return jsonify({'error': 'lookup_failed'}), 502
 
     if not results:
         return jsonify(None)
@@ -70,6 +102,7 @@ def health():
 
 
 @app.route('/user/library')
+@limiter.limit("5/minute")
 def user_library():
     """
     Fetch owned games for a Steam user.
@@ -82,6 +115,8 @@ def user_library():
     steam_id = request.args.get('steam_id', '').strip()
     if not steam_id:
         return jsonify({'error': 'steam_id required'}), 400
+    if not re.match(r'^\d{17}$', steam_id):
+        return jsonify({'error': 'invalid_steam_id'}), 400
 
     try:
         url = (

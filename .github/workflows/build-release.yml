@@ -217,8 +217,8 @@ jobs:
 
           # Icon
           mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          if [ -f "store_assets/logos/linux_flathub/icon_256x256.png" ]; then
-            cp store_assets/logos/linux_flathub/icon_256x256.png \
+          if [ -f "assets/logos/linux_flathub/icon_256x256.png" ]; then
+            cp assets/logos/linux_flathub/icon_256x256.png \
               AppDir/usr/share/icons/hicolor/256x256/apps/com.example.backlogforge.png
           fi
 

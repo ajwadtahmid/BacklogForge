@@ -18,6 +18,62 @@ typedef BacklogAnalysis = ({
 class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
   StatsDao(super.db);
 
+  /// All per-status counts and total playtime in a single SQL pass.
+  /// Replaces the four individual count/sum queries.
+  Future<({int backlog, int completed, int playing, double totalHours})>
+      _aggregateCounts(String steamId) async {
+    const backlogExpr = CustomExpression<int>(
+      "COALESCE(SUM(CASE WHEN status IN ('backlog','playing') THEN 1 ELSE 0 END),0)",
+    );
+    const completedExpr = CustomExpression<int>(
+      "COALESCE(SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END),0)",
+    );
+    const playingExpr = CustomExpression<int>(
+      "COALESCE(SUM(CASE WHEN status='playing' THEN 1 ELSE 0 END),0)",
+    );
+    const minutesExpr = CustomExpression<int>(
+      "COALESCE(SUM(playtime_minutes),0)",
+    );
+    final row = await (selectOnly(games)
+          ..addColumns([backlogExpr, completedExpr, playingExpr, minutesExpr])
+          ..where(games.steamId.equals(steamId)))
+        .getSingle();
+    return (
+      backlog: row.read(backlogExpr) ?? 0,
+      completed: row.read(completedExpr) ?? 0,
+      playing: row.read(playingExpr) ?? 0,
+      totalHours: (row.read(minutesExpr) ?? 0) / 60.0,
+    );
+  }
+
+  /// Computes all library statistics in 3 parallel queries instead of 6.
+  /// Returns a record consumed directly by [statsProvider].
+  Future<
+      ({
+        int backlog,
+        int completed,
+        int playing,
+        double totalHours,
+        int completedQuarterly,
+        BacklogAnalysis analysis,
+      })> computeStats(String steamId) async {
+    // Fire all three in parallel; each awaits independently.
+    final countsFuture = _aggregateCounts(steamId);
+    final quarterlyFuture = completedLastFourMonths(steamId);
+    final analysisFuture = backlogStats(steamId);
+    final counts = await countsFuture;
+    final quarterly = await quarterlyFuture;
+    final analysis = await analysisFuture;
+    return (
+      backlog: counts.backlog,
+      completed: counts.completed,
+      playing: counts.playing,
+      totalHours: counts.totalHours,
+      completedQuarterly: quarterly,
+      analysis: analysis,
+    );
+  }
+
   /// Number of games with status backlog or playing.
   Future<int> backlogCount(String steamId) async {
     final count = games.id.count();
@@ -87,7 +143,9 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
   /// Number of games completed in the last four months (current month + prior 3).
   Future<int> completedLastFourMonths(String steamId) async {
     final now = DateTime.now();
-    // DateTime normalises month arithmetic across year boundaries automatically.
+    // Dart's DateTime constructor normalises out-of-range months, so month-3
+    // is safe even in Jan–Mar (e.g. March 2026 → December 2025). The window
+    // intentionally starts on the 1st of that month, not the same day.
     final startOfWindow = DateTime(now.year, now.month - 3);
     final count = games.id.count();
     final query = selectOnly(games)
