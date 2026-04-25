@@ -4,10 +4,12 @@ class TimeToBeat {
   final double? essentialHours;
   final double? extendedHours;
   final double? completionistHours;
+  final String? hltbName;
 
   TimeToBeat({
     this.essentialHours,
     this.extendedHours,
     this.completionistHours,
+    this.hltbName,
   });
 }

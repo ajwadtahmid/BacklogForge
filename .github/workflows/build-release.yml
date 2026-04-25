@@ -3,7 +3,7 @@ name: Build Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -17,8 +17,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '^3.41'
-          channel: 'stable'
+          channel: "stable"
 
       - name: Get dependencies
         run: flutter pub get
@@ -40,14 +39,13 @@ jobs:
 
       - uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: "temurin"
+          java-version: "17"
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '^3.41'
-          channel: 'stable'
+          channel: "stable"
 
       - name: Get dependencies
         run: flutter pub get
@@ -88,8 +86,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '^3.41'
-          channel: 'stable'
+          channel: "stable"
 
       - name: Get dependencies
         run: flutter pub get
@@ -136,8 +133,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '^3.41'
-          channel: 'stable'
+          channel: "stable"
 
       - name: Install Linux dependencies
         run: |
@@ -264,7 +260,7 @@ jobs:
           path: android-build/
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             windows-build/BacklogForge-Setup-*.exe

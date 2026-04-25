@@ -149,6 +149,17 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _hltbNameMeta = const VerificationMeta(
+    'hltbName',
+  );
+  @override
+  late final GeneratedColumn<String> hltbName = GeneratedColumn<String>(
+    'hltb_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _playStyleMeta = const VerificationMeta(
     'playStyle',
   );
@@ -190,6 +201,7 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     completedAt,
     lastPlayedAt,
     hltbImageUrl,
+    hltbName,
     playStyle,
     manualOverride,
   ];
@@ -309,6 +321,12 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
         ),
       );
     }
+    if (data.containsKey('hltb_name')) {
+      context.handle(
+        _hltbNameMeta,
+        hltbName.isAcceptableOrUnknown(data['hltb_name']!, _hltbNameMeta),
+      );
+    }
     if (data.containsKey('play_style')) {
       context.handle(
         _playStyleMeta,
@@ -389,6 +407,10 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
         DriftSqlType.string,
         data['${effectivePrefix}hltb_image_url'],
       ),
+      hltbName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}hltb_name'],
+      ),
       playStyle: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}play_style'],
@@ -420,6 +442,7 @@ class Game extends DataClass implements Insertable<Game> {
   final DateTime? completedAt;
   final DateTime? lastPlayedAt;
   final String? hltbImageUrl;
+  final String? hltbName;
   final String? playStyle;
   final bool manualOverride;
   const Game({
@@ -436,6 +459,7 @@ class Game extends DataClass implements Insertable<Game> {
     this.completedAt,
     this.lastPlayedAt,
     this.hltbImageUrl,
+    this.hltbName,
     this.playStyle,
     required this.manualOverride,
   });
@@ -466,6 +490,9 @@ class Game extends DataClass implements Insertable<Game> {
     }
     if (!nullToAbsent || hltbImageUrl != null) {
       map['hltb_image_url'] = Variable<String>(hltbImageUrl);
+    }
+    if (!nullToAbsent || hltbName != null) {
+      map['hltb_name'] = Variable<String>(hltbName);
     }
     if (!nullToAbsent || playStyle != null) {
       map['play_style'] = Variable<String>(playStyle);
@@ -501,6 +528,9 @@ class Game extends DataClass implements Insertable<Game> {
       hltbImageUrl: hltbImageUrl == null && nullToAbsent
           ? const Value.absent()
           : Value(hltbImageUrl),
+      hltbName: hltbName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(hltbName),
       playStyle: playStyle == null && nullToAbsent
           ? const Value.absent()
           : Value(playStyle),
@@ -529,6 +559,7 @@ class Game extends DataClass implements Insertable<Game> {
       completedAt: serializer.fromJson<DateTime?>(json['completedAt']),
       lastPlayedAt: serializer.fromJson<DateTime?>(json['lastPlayedAt']),
       hltbImageUrl: serializer.fromJson<String?>(json['hltbImageUrl']),
+      hltbName: serializer.fromJson<String?>(json['hltbName']),
       playStyle: serializer.fromJson<String?>(json['playStyle']),
       manualOverride: serializer.fromJson<bool>(json['manualOverride']),
     );
@@ -550,6 +581,7 @@ class Game extends DataClass implements Insertable<Game> {
       'completedAt': serializer.toJson<DateTime?>(completedAt),
       'lastPlayedAt': serializer.toJson<DateTime?>(lastPlayedAt),
       'hltbImageUrl': serializer.toJson<String?>(hltbImageUrl),
+      'hltbName': serializer.toJson<String?>(hltbName),
       'playStyle': serializer.toJson<String?>(playStyle),
       'manualOverride': serializer.toJson<bool>(manualOverride),
     };
@@ -569,6 +601,7 @@ class Game extends DataClass implements Insertable<Game> {
     Value<DateTime?> completedAt = const Value.absent(),
     Value<DateTime?> lastPlayedAt = const Value.absent(),
     Value<String?> hltbImageUrl = const Value.absent(),
+    Value<String?> hltbName = const Value.absent(),
     Value<String?> playStyle = const Value.absent(),
     bool? manualOverride,
   }) => Game(
@@ -591,6 +624,7 @@ class Game extends DataClass implements Insertable<Game> {
     completedAt: completedAt.present ? completedAt.value : this.completedAt,
     lastPlayedAt: lastPlayedAt.present ? lastPlayedAt.value : this.lastPlayedAt,
     hltbImageUrl: hltbImageUrl.present ? hltbImageUrl.value : this.hltbImageUrl,
+    hltbName: hltbName.present ? hltbName.value : this.hltbName,
     playStyle: playStyle.present ? playStyle.value : this.playStyle,
     manualOverride: manualOverride ?? this.manualOverride,
   );
@@ -623,6 +657,7 @@ class Game extends DataClass implements Insertable<Game> {
       hltbImageUrl: data.hltbImageUrl.present
           ? data.hltbImageUrl.value
           : this.hltbImageUrl,
+      hltbName: data.hltbName.present ? data.hltbName.value : this.hltbName,
       playStyle: data.playStyle.present ? data.playStyle.value : this.playStyle,
       manualOverride: data.manualOverride.present
           ? data.manualOverride.value
@@ -646,6 +681,7 @@ class Game extends DataClass implements Insertable<Game> {
           ..write('completedAt: $completedAt, ')
           ..write('lastPlayedAt: $lastPlayedAt, ')
           ..write('hltbImageUrl: $hltbImageUrl, ')
+          ..write('hltbName: $hltbName, ')
           ..write('playStyle: $playStyle, ')
           ..write('manualOverride: $manualOverride')
           ..write(')'))
@@ -667,6 +703,7 @@ class Game extends DataClass implements Insertable<Game> {
     completedAt,
     lastPlayedAt,
     hltbImageUrl,
+    hltbName,
     playStyle,
     manualOverride,
   );
@@ -687,6 +724,7 @@ class Game extends DataClass implements Insertable<Game> {
           other.completedAt == this.completedAt &&
           other.lastPlayedAt == this.lastPlayedAt &&
           other.hltbImageUrl == this.hltbImageUrl &&
+          other.hltbName == this.hltbName &&
           other.playStyle == this.playStyle &&
           other.manualOverride == this.manualOverride);
 }
@@ -705,6 +743,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
   final Value<DateTime?> completedAt;
   final Value<DateTime?> lastPlayedAt;
   final Value<String?> hltbImageUrl;
+  final Value<String?> hltbName;
   final Value<String?> playStyle;
   final Value<bool> manualOverride;
   const GamesCompanion({
@@ -721,6 +760,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
     this.completedAt = const Value.absent(),
     this.lastPlayedAt = const Value.absent(),
     this.hltbImageUrl = const Value.absent(),
+    this.hltbName = const Value.absent(),
     this.playStyle = const Value.absent(),
     this.manualOverride = const Value.absent(),
   });
@@ -738,6 +778,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
     this.completedAt = const Value.absent(),
     this.lastPlayedAt = const Value.absent(),
     this.hltbImageUrl = const Value.absent(),
+    this.hltbName = const Value.absent(),
     this.playStyle = const Value.absent(),
     this.manualOverride = const Value.absent(),
   }) : steamId = Value(steamId),
@@ -758,6 +799,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
     Expression<DateTime>? completedAt,
     Expression<DateTime>? lastPlayedAt,
     Expression<String>? hltbImageUrl,
+    Expression<String>? hltbName,
     Expression<String>? playStyle,
     Expression<bool>? manualOverride,
   }) {
@@ -775,6 +817,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
       if (completedAt != null) 'completed_at': completedAt,
       if (lastPlayedAt != null) 'last_played_at': lastPlayedAt,
       if (hltbImageUrl != null) 'hltb_image_url': hltbImageUrl,
+      if (hltbName != null) 'hltb_name': hltbName,
       if (playStyle != null) 'play_style': playStyle,
       if (manualOverride != null) 'manual_override': manualOverride,
     });
@@ -794,6 +837,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
     Value<DateTime?>? completedAt,
     Value<DateTime?>? lastPlayedAt,
     Value<String?>? hltbImageUrl,
+    Value<String?>? hltbName,
     Value<String?>? playStyle,
     Value<bool>? manualOverride,
   }) {
@@ -811,6 +855,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
       completedAt: completedAt ?? this.completedAt,
       lastPlayedAt: lastPlayedAt ?? this.lastPlayedAt,
       hltbImageUrl: hltbImageUrl ?? this.hltbImageUrl,
+      hltbName: hltbName ?? this.hltbName,
       playStyle: playStyle ?? this.playStyle,
       manualOverride: manualOverride ?? this.manualOverride,
     );
@@ -858,6 +903,9 @@ class GamesCompanion extends UpdateCompanion<Game> {
     if (hltbImageUrl.present) {
       map['hltb_image_url'] = Variable<String>(hltbImageUrl.value);
     }
+    if (hltbName.present) {
+      map['hltb_name'] = Variable<String>(hltbName.value);
+    }
     if (playStyle.present) {
       map['play_style'] = Variable<String>(playStyle.value);
     }
@@ -883,6 +931,7 @@ class GamesCompanion extends UpdateCompanion<Game> {
           ..write('completedAt: $completedAt, ')
           ..write('lastPlayedAt: $lastPlayedAt, ')
           ..write('hltbImageUrl: $hltbImageUrl, ')
+          ..write('hltbName: $hltbName, ')
           ..write('playStyle: $playStyle, ')
           ..write('manualOverride: $manualOverride')
           ..write(')'))
@@ -956,6 +1005,18 @@ class $AppSettingsTable extends AppSettings
     requiredDuringInsert: false,
     defaultValue: const Constant('dark'),
   );
+  static const VerificationMeta _dailyBudgetHoursMeta = const VerificationMeta(
+    'dailyBudgetHours',
+  );
+  @override
+  late final GeneratedColumn<double> dailyBudgetHours = GeneratedColumn<double>(
+    'daily_budget_hours',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1.0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     steamId,
@@ -963,6 +1024,7 @@ class $AppSettingsTable extends AppSettings
     sortOrder,
     showCompletedTab,
     theme,
+    dailyBudgetHours,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1014,6 +1076,15 @@ class $AppSettingsTable extends AppSettings
         theme.isAcceptableOrUnknown(data['theme']!, _themeMeta),
       );
     }
+    if (data.containsKey('daily_budget_hours')) {
+      context.handle(
+        _dailyBudgetHoursMeta,
+        dailyBudgetHours.isAcceptableOrUnknown(
+          data['daily_budget_hours']!,
+          _dailyBudgetHoursMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -1043,6 +1114,10 @@ class $AppSettingsTable extends AppSettings
         DriftSqlType.string,
         data['${effectivePrefix}theme'],
       )!,
+      dailyBudgetHours: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}daily_budget_hours'],
+      )!,
     );
   }
 
@@ -1058,12 +1133,14 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   final String sortOrder;
   final bool showCompletedTab;
   final String theme;
+  final double dailyBudgetHours;
   const AppSetting({
     required this.steamId,
     required this.completionThreshold,
     required this.sortOrder,
     required this.showCompletedTab,
     required this.theme,
+    required this.dailyBudgetHours,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1073,6 +1150,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     map['sort_order'] = Variable<String>(sortOrder);
     map['show_completed_tab'] = Variable<bool>(showCompletedTab);
     map['theme'] = Variable<String>(theme);
+    map['daily_budget_hours'] = Variable<double>(dailyBudgetHours);
     return map;
   }
 
@@ -1083,6 +1161,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       sortOrder: Value(sortOrder),
       showCompletedTab: Value(showCompletedTab),
       theme: Value(theme),
+      dailyBudgetHours: Value(dailyBudgetHours),
     );
   }
 
@@ -1099,6 +1178,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       sortOrder: serializer.fromJson<String>(json['sortOrder']),
       showCompletedTab: serializer.fromJson<bool>(json['showCompletedTab']),
       theme: serializer.fromJson<String>(json['theme']),
+      dailyBudgetHours: serializer.fromJson<double>(json['dailyBudgetHours']),
     );
   }
   @override
@@ -1110,6 +1190,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       'sortOrder': serializer.toJson<String>(sortOrder),
       'showCompletedTab': serializer.toJson<bool>(showCompletedTab),
       'theme': serializer.toJson<String>(theme),
+      'dailyBudgetHours': serializer.toJson<double>(dailyBudgetHours),
     };
   }
 
@@ -1119,12 +1200,14 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     String? sortOrder,
     bool? showCompletedTab,
     String? theme,
+    double? dailyBudgetHours,
   }) => AppSetting(
     steamId: steamId ?? this.steamId,
     completionThreshold: completionThreshold ?? this.completionThreshold,
     sortOrder: sortOrder ?? this.sortOrder,
     showCompletedTab: showCompletedTab ?? this.showCompletedTab,
     theme: theme ?? this.theme,
+    dailyBudgetHours: dailyBudgetHours ?? this.dailyBudgetHours,
   );
   AppSetting copyWithCompanion(AppSettingsCompanion data) {
     return AppSetting(
@@ -1137,6 +1220,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           ? data.showCompletedTab.value
           : this.showCompletedTab,
       theme: data.theme.present ? data.theme.value : this.theme,
+      dailyBudgetHours: data.dailyBudgetHours.present
+          ? data.dailyBudgetHours.value
+          : this.dailyBudgetHours,
     );
   }
 
@@ -1147,7 +1233,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           ..write('completionThreshold: $completionThreshold, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('showCompletedTab: $showCompletedTab, ')
-          ..write('theme: $theme')
+          ..write('theme: $theme, ')
+          ..write('dailyBudgetHours: $dailyBudgetHours')
           ..write(')'))
         .toString();
   }
@@ -1159,6 +1246,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     sortOrder,
     showCompletedTab,
     theme,
+    dailyBudgetHours,
   );
   @override
   bool operator ==(Object other) =>
@@ -1168,7 +1256,8 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           other.completionThreshold == this.completionThreshold &&
           other.sortOrder == this.sortOrder &&
           other.showCompletedTab == this.showCompletedTab &&
-          other.theme == this.theme);
+          other.theme == this.theme &&
+          other.dailyBudgetHours == this.dailyBudgetHours);
 }
 
 class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
@@ -1177,6 +1266,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   final Value<String> sortOrder;
   final Value<bool> showCompletedTab;
   final Value<String> theme;
+  final Value<double> dailyBudgetHours;
   final Value<int> rowid;
   const AppSettingsCompanion({
     this.steamId = const Value.absent(),
@@ -1184,6 +1274,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     this.sortOrder = const Value.absent(),
     this.showCompletedTab = const Value.absent(),
     this.theme = const Value.absent(),
+    this.dailyBudgetHours = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AppSettingsCompanion.insert({
@@ -1192,6 +1283,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     this.sortOrder = const Value.absent(),
     this.showCompletedTab = const Value.absent(),
     this.theme = const Value.absent(),
+    this.dailyBudgetHours = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : steamId = Value(steamId);
   static Insertable<AppSetting> custom({
@@ -1200,6 +1292,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Expression<String>? sortOrder,
     Expression<bool>? showCompletedTab,
     Expression<String>? theme,
+    Expression<double>? dailyBudgetHours,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1209,6 +1302,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
       if (sortOrder != null) 'sort_order': sortOrder,
       if (showCompletedTab != null) 'show_completed_tab': showCompletedTab,
       if (theme != null) 'theme': theme,
+      if (dailyBudgetHours != null) 'daily_budget_hours': dailyBudgetHours,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1219,6 +1313,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Value<String>? sortOrder,
     Value<bool>? showCompletedTab,
     Value<String>? theme,
+    Value<double>? dailyBudgetHours,
     Value<int>? rowid,
   }) {
     return AppSettingsCompanion(
@@ -1227,6 +1322,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
       sortOrder: sortOrder ?? this.sortOrder,
       showCompletedTab: showCompletedTab ?? this.showCompletedTab,
       theme: theme ?? this.theme,
+      dailyBudgetHours: dailyBudgetHours ?? this.dailyBudgetHours,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1249,6 +1345,9 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     if (theme.present) {
       map['theme'] = Variable<String>(theme.value);
     }
+    if (dailyBudgetHours.present) {
+      map['daily_budget_hours'] = Variable<double>(dailyBudgetHours.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1263,6 +1362,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
           ..write('sortOrder: $sortOrder, ')
           ..write('showCompletedTab: $showCompletedTab, ')
           ..write('theme: $theme, ')
+          ..write('dailyBudgetHours: $dailyBudgetHours, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1317,6 +1417,7 @@ typedef $$GamesTableCreateCompanionBuilder =
       Value<DateTime?> completedAt,
       Value<DateTime?> lastPlayedAt,
       Value<String?> hltbImageUrl,
+      Value<String?> hltbName,
       Value<String?> playStyle,
       Value<bool> manualOverride,
     });
@@ -1335,6 +1436,7 @@ typedef $$GamesTableUpdateCompanionBuilder =
       Value<DateTime?> completedAt,
       Value<DateTime?> lastPlayedAt,
       Value<String?> hltbImageUrl,
+      Value<String?> hltbName,
       Value<String?> playStyle,
       Value<bool> manualOverride,
     });
@@ -1409,6 +1511,11 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
 
   ColumnFilters<String> get hltbImageUrl => $composableBuilder(
     column: $table.hltbImageUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get hltbName => $composableBuilder(
+    column: $table.hltbName,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1497,6 +1604,11 @@ class $$GamesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get hltbName => $composableBuilder(
+    column: $table.hltbName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get playStyle => $composableBuilder(
     column: $table.playStyle,
     builder: (column) => ColumnOrderings(column),
@@ -1570,6 +1682,9 @@ class $$GamesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get hltbName =>
+      $composableBuilder(column: $table.hltbName, builder: (column) => column);
+
   GeneratedColumn<String> get playStyle =>
       $composableBuilder(column: $table.playStyle, builder: (column) => column);
 
@@ -1620,6 +1735,7 @@ class $$GamesTableTableManager
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<DateTime?> lastPlayedAt = const Value.absent(),
                 Value<String?> hltbImageUrl = const Value.absent(),
+                Value<String?> hltbName = const Value.absent(),
                 Value<String?> playStyle = const Value.absent(),
                 Value<bool> manualOverride = const Value.absent(),
               }) => GamesCompanion(
@@ -1636,6 +1752,7 @@ class $$GamesTableTableManager
                 completedAt: completedAt,
                 lastPlayedAt: lastPlayedAt,
                 hltbImageUrl: hltbImageUrl,
+                hltbName: hltbName,
                 playStyle: playStyle,
                 manualOverride: manualOverride,
               ),
@@ -1654,6 +1771,7 @@ class $$GamesTableTableManager
                 Value<DateTime?> completedAt = const Value.absent(),
                 Value<DateTime?> lastPlayedAt = const Value.absent(),
                 Value<String?> hltbImageUrl = const Value.absent(),
+                Value<String?> hltbName = const Value.absent(),
                 Value<String?> playStyle = const Value.absent(),
                 Value<bool> manualOverride = const Value.absent(),
               }) => GamesCompanion.insert(
@@ -1670,6 +1788,7 @@ class $$GamesTableTableManager
                 completedAt: completedAt,
                 lastPlayedAt: lastPlayedAt,
                 hltbImageUrl: hltbImageUrl,
+                hltbName: hltbName,
                 playStyle: playStyle,
                 manualOverride: manualOverride,
               ),
@@ -1702,6 +1821,7 @@ typedef $$AppSettingsTableCreateCompanionBuilder =
       Value<String> sortOrder,
       Value<bool> showCompletedTab,
       Value<String> theme,
+      Value<double> dailyBudgetHours,
       Value<int> rowid,
     });
 typedef $$AppSettingsTableUpdateCompanionBuilder =
@@ -1711,6 +1831,7 @@ typedef $$AppSettingsTableUpdateCompanionBuilder =
       Value<String> sortOrder,
       Value<bool> showCompletedTab,
       Value<String> theme,
+      Value<double> dailyBudgetHours,
       Value<int> rowid,
     });
 
@@ -1745,6 +1866,11 @@ class $$AppSettingsTableFilterComposer
 
   ColumnFilters<String> get theme => $composableBuilder(
     column: $table.theme,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get dailyBudgetHours => $composableBuilder(
+    column: $table.dailyBudgetHours,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1782,6 +1908,11 @@ class $$AppSettingsTableOrderingComposer
     column: $table.theme,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<double> get dailyBudgetHours => $composableBuilder(
+    column: $table.dailyBudgetHours,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$AppSettingsTableAnnotationComposer
@@ -1811,6 +1942,11 @@ class $$AppSettingsTableAnnotationComposer
 
   GeneratedColumn<String> get theme =>
       $composableBuilder(column: $table.theme, builder: (column) => column);
+
+  GeneratedColumn<double> get dailyBudgetHours => $composableBuilder(
+    column: $table.dailyBudgetHours,
+    builder: (column) => column,
+  );
 }
 
 class $$AppSettingsTableTableManager
@@ -1849,6 +1985,7 @@ class $$AppSettingsTableTableManager
                 Value<String> sortOrder = const Value.absent(),
                 Value<bool> showCompletedTab = const Value.absent(),
                 Value<String> theme = const Value.absent(),
+                Value<double> dailyBudgetHours = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsCompanion(
                 steamId: steamId,
@@ -1856,6 +1993,7 @@ class $$AppSettingsTableTableManager
                 sortOrder: sortOrder,
                 showCompletedTab: showCompletedTab,
                 theme: theme,
+                dailyBudgetHours: dailyBudgetHours,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1865,6 +2003,7 @@ class $$AppSettingsTableTableManager
                 Value<String> sortOrder = const Value.absent(),
                 Value<bool> showCompletedTab = const Value.absent(),
                 Value<String> theme = const Value.absent(),
+                Value<double> dailyBudgetHours = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsCompanion.insert(
                 steamId: steamId,
@@ -1872,6 +2011,7 @@ class $$AppSettingsTableTableManager
                 sortOrder: sortOrder,
                 showCompletedTab: showCompletedTab,
                 theme: theme,
+                dailyBudgetHours: dailyBudgetHours,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

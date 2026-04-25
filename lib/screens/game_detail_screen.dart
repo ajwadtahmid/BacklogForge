@@ -6,7 +6,10 @@ import '../models/game.dart';
 import '../models/game_status.dart';
 import '../models/play_style.dart';
 import '../providers/game_actions_provider.dart';
+import '../providers/auth_provider.dart';
 import '../services/database/app_database.dart';
+import '../services/steam_service.dart';
+import 'hltb_update_screen.dart';
 
 /// Full-screen detail view for a single game.
 /// Watches [gameDetailProvider] so all edits (playtime, HLTB hours, status,
@@ -110,6 +113,35 @@ class _GameDetailScreenState extends ConsumerState<GameDetailScreen> {
       } finally {
         if (mounted) setState(() => _saving = false);
       }
+    }
+  }
+
+  Future<void> _syncPlaytimeFromSteam(Game game) async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final auth = await ref.read(authProvider.future);
+      final steamId = auth.steamId;
+      if (steamId == null || game.appId <= 0) return;
+
+      final steamService = SteamService();
+      final playtimeMinutes = await steamService.getGamePlaytime(steamId, game.appId);
+
+      if (playtimeMinutes != null && mounted) {
+        await ref.read(gameActionsProvider).setPlaytime(game, playtimeMinutes / 60.0);
+        messenger.showSnackBar(
+          SnackBar(content: Text('Playtime synced from Steam')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Failed to sync playtime from Steam')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -219,7 +251,18 @@ class _GameDetailScreenState extends ConsumerState<GameDetailScreen> {
                     children: [
                       _SectionLabel('Playtime'),
                       const Spacer(),
+                      if (game.appId > 0)
+                        IconButton(
+                          icon: Icon(
+                            Icons.sync,
+                            size: 18,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          tooltip: 'Sync from Steam',
+                          onPressed: _saving ? null : () => _syncPlaytimeFromSteam(game),
+                        ),
                       _EditIconButton(
+                        tooltip: 'Edit Playtime',
                         onPressed: _saving
                             ? null
                             : () => _showPlaytimeDialog(context, game),
@@ -240,7 +283,16 @@ class _GameDetailScreenState extends ConsumerState<GameDetailScreen> {
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
-                        'Synced from Steam — overwritten on next sync',
+                        'Synced from Steam',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey[600]),
+                      ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        'Manually added',
                         style: TextStyle(
                             fontSize: 11, color: Colors.grey[600]),
                       ),
@@ -250,9 +302,68 @@ class _GameDetailScreenState extends ConsumerState<GameDetailScreen> {
                   const SizedBox(height: 24),
                   Row(
                     children: [
-                      _SectionLabel('Time to Beat'),
-                      const Spacer(),
+                      Expanded(
+                        child: RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: 'TIME TO BEAT',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 1.2,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
+                              if (game.hltbName != null) ...[
+                                TextSpan(
+                                  text: ' (',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: '${game.hltbName} on HLTB',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: ')',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (game.appId > 0)
+                        IconButton(
+                          icon: Icon(
+                            Icons.search,
+                            size: 18,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          tooltip: 'Update Time to Beat',
+                          onPressed: _saving
+                              ? null
+                              : () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          HltbUpdateScreen(game: game),
+                                    ),
+                                  ),
+                        ),
                       _EditIconButton(
+                        tooltip: 'Edit Time to Beat',
                         onPressed: _saving
                             ? null
                             : () => _showHltbDialog(context, game),
@@ -639,8 +750,12 @@ class _ToggleRow<T> extends StatelessWidget {
 // ── Supporting widgets ────────────────────────────────────────────────────────
 
 class _EditIconButton extends StatelessWidget {
-  const _EditIconButton({required this.onPressed});
+  const _EditIconButton({
+    required this.onPressed,
+    this.tooltip = 'Edit',
+  });
   final VoidCallback? onPressed;
+  final String tooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -649,6 +764,7 @@ class _EditIconButton extends StatelessWidget {
       height: 32,
       child: IconButton(
         padding: EdgeInsets.zero,
+        tooltip: tooltip,
         icon: Icon(
           Icons.edit_outlined,
           size: 16,

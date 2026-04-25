@@ -18,6 +18,7 @@ class Games extends Table {
   DateTimeColumn get completedAt => dateTime().nullable()();
   DateTimeColumn get lastPlayedAt => dateTime().nullable()();
   TextColumn get hltbImageUrl => text().nullable()();
+  TextColumn get hltbName => text().nullable()();
   // 'essential' | 'extended' | 'completionist' | null (defaults to essential).
   TextColumn get playStyle => text().nullable()();
   BoolColumn get manualOverride =>
@@ -29,6 +30,8 @@ class Games extends Table {
       ];
 }
 
+
+
 class AppSettings extends Table {
   TextColumn get steamId => text()();
   TextColumn get completionThreshold =>
@@ -37,6 +40,8 @@ class AppSettings extends Table {
   BoolColumn get showCompletedTab =>
       boolean().withDefault(const Constant(true))();
   TextColumn get theme => text().withDefault(const Constant('dark'))();
+  RealColumn get dailyBudgetHours =>
+      real().withDefault(const Constant(1.0))();
 
   @override
   Set<Column>? get primaryKey => {steamId};

@@ -32,8 +32,7 @@ void main() {
         const CompletionGradeCard(percent: 82.5, grade: 'A'),
       ));
       expect(find.text('A'), findsOneWidget);
-      expect(find.text('82.5%'), findsOneWidget);
-      expect(find.text('Library Completed'), findsOneWidget);
+      expect(find.text('82.5% · Library Completed'), findsOneWidget);
       final text = tester.widget<Text>(find.text('A'));
       expect(text.style!.color, Colors.green);
     });
@@ -54,11 +53,19 @@ void main() {
       expect(text.style!.color, Colors.amber);
     });
 
-    testWidgets('grade D renders red', (tester) async {
+    testWidgets('grade D renders orange', (tester) async {
       await tester.pumpWidget(wrap(
-        const CompletionGradeCard(percent: 12.0, grade: 'D'),
+        const CompletionGradeCard(percent: 5.0, grade: 'D'),
       ));
       final text = tester.widget<Text>(find.text('D'));
+      expect(text.style!.color, Colors.orange);
+    });
+
+    testWidgets('grade D- renders red', (tester) async {
+      await tester.pumpWidget(wrap(
+        const CompletionGradeCard(percent: 1.0, grade: 'D-'),
+      ));
+      final text = tester.widget<Text>(find.text('D-'));
       expect(text.style!.color, Colors.red);
     });
   });

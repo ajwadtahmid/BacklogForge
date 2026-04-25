@@ -51,10 +51,25 @@ class CompletionGradeCard extends StatelessWidget {
   final String grade;
 
   Color _color() {
-    if (grade == 'A+' || grade == 'A') return Colors.green;
-    if (grade == 'B') return Colors.teal;
-    if (grade == 'C') return Colors.amber;
-    return Colors.red;
+    if (grade.startsWith('A')) {
+      if (grade == 'A+') return Colors.green[700]!;
+      if (grade == 'A-') return Colors.green[300]!;
+      return Colors.green;
+    }
+    if (grade.startsWith('B')) {
+      if (grade == 'B+') return Colors.teal[700]!;
+      if (grade == 'B-') return Colors.teal[300]!;
+      return Colors.teal;
+    }
+    if (grade.startsWith('C')) {
+      if (grade == 'C+') return Colors.amber[700]!;
+      if (grade == 'C-') return Colors.amber[300]!;
+      return Colors.amber;
+    }
+    // D grades: warm orange tones — encouraging, not harsh
+    if (grade == 'D+') return Colors.orange[300]!;
+    if (grade == 'D') return Colors.orange;
+    return Colors.red; // D-
   }
 
   @override
@@ -65,6 +80,12 @@ class CompletionGradeCard extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            Icon(
+              Icons.workspace_premium,
+              size: 22,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 6),
             Text(
               grade,
               style: TextStyle(
@@ -75,14 +96,11 @@ class CompletionGradeCard extends StatelessWidget {
             ),
             const SizedBox(height: 2),
             Text(
-              '${percent.toStringAsFixed(1)}%',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 2),
-            const Text(
-              'Library Completed',
-              style: TextStyle(color: Colors.grey, fontSize: 11),
+              '${percent.toStringAsFixed(1)}% · Library Completed',
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

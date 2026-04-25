@@ -117,6 +117,7 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
           essentialHours: Value(data.essentialHours),
           extendedHours: Value(data.extendedHours),
           completionistHours: Value(data.completionistHours),
+          hltbName: Value(data.hltbName),
         ));
       }
       onProgress?.call(i + 1, toFetch.length);
@@ -194,6 +195,7 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
         extendedHours: Value(timeToBeat?.extendedHours),
         completionistHours: Value(timeToBeat?.completionistHours),
         hltbImageUrl: Value(artworkUrl),
+        hltbName: Value(timeToBeat?.hltbName),
         manualOverride: const Value(true),
         addedAt: DateTime.now(),
       ),

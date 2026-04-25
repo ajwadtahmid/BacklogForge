@@ -49,8 +49,8 @@ class HltbService {
     final result = await _lookupRaw(gameName);
     if (result != null) return result;
 
-    final sanitized = _sanitize(gameName);
-    if (sanitized == gameName) return null;
+    final sanitized = normalise(gameName);
+    if (sanitized == gameName.toLowerCase()) return null;
     return _lookupRaw(sanitized);
   }
 
@@ -74,16 +74,24 @@ class HltbService {
       essentialHours: (body['essential_hours'] as num?)?.toDouble(),
       extendedHours: (body['extended_hours'] as num?)?.toDouble(),
       completionistHours: (body['completionist_hours'] as num?)?.toDouble(),
+      hltbName: body['name'] as String?,
     );
   }
 
-  /// Strips trademark/copyright symbols and other non-ASCII characters that
-  /// HLTB typically omits from their titles (e.g. ® → '', ™ → '').
-  String _sanitize(String name) {
+  /// Normalises a game name for HLTB lookup/search:
+  /// strips trademark/copyright symbols, removes special characters,
+  /// collapses whitespace, and lowercases.
+  ///
+  /// Used both as the retry fallback in [lookup] and as the pre-fill
+  /// query in the HLTB update screen.
+  static String normalise(String name) {
     return name
-        .replaceAll(RegExp(r'[®™©]'), '')
-        .replaceAll(RegExp(r'[^\x00-\x7F]'), '')
+        .replaceAll(RegExp(r'[™®©℠]'), '')
+        .replaceAll(RegExp(r'\(r\)', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\(tm\)', caseSensitive: false), '')
+        .replaceAll(RegExp(r'[^\w\s]'), ' ')
         .replaceAll(RegExp(r'\s{2,}'), ' ')
-        .trim();
+        .trim()
+        .toLowerCase();
   }
 }

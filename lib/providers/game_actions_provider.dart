@@ -74,12 +74,14 @@ class GameActions {
     required double? essential,
     required double? extended,
     required double? completionist,
+    String? hltbName,
   }) async {
     await (db.update(db.games)..where((tbl) => tbl.id.equals(g.id))).write(
       GamesCompanion(
         essentialHours: Value(essential),
         extendedHours: Value(extended),
         completionistHours: Value(completionist),
+        hltbName: hltbName != null ? Value(hltbName) : const Value.absent(),
         manualOverride: const Value(true),
       ),
     );
@@ -92,6 +94,80 @@ class GameActions {
   Future<void> deleteGame(Game g) async {
     await (db.delete(db.games)..where((tbl) => tbl.id.equals(g.id))).go();
     invalidateAll();
+  }
+
+  /// Marks all [games] as completed with the current timestamp.
+  Future<void> bulkMarkCompleted(List<Game> games) async {
+    if (games.isEmpty) return;
+    final ids = games.map((g) => g.id).toList();
+    await (db.update(db.games)..where((g) => g.id.isIn(ids))).write(
+      GamesCompanion(
+        status: const Value('completed'),
+        manualOverride: const Value(true),
+        completedAt: Value(DateTime.now()),
+      ),
+    );
+    invalidateAll();
+  }
+
+  /// Marks all [games] as playing.
+  /// Pass [preserveCompletedAt] = true (completed tab) to keep completedAt so
+  /// games remain visible there while replaying.
+  Future<void> bulkMarkPlaying(
+    List<Game> games, {
+    bool preserveCompletedAt = false,
+  }) async {
+    if (games.isEmpty) return;
+    final ids = games.map((g) => g.id).toList();
+    await (db.update(db.games)..where((g) => g.id.isIn(ids))).write(
+      GamesCompanion(
+        status: const Value('playing'),
+        manualOverride: const Value(true),
+        completedAt: preserveCompletedAt ? const Value.absent() : const Value(null),
+      ),
+    );
+    invalidateAll();
+  }
+
+  /// Marks replaying games (status='playing', completedAt set) back to
+  /// completed, keeping their completedAt timestamp intact.
+  Future<void> bulkStopReplaying(List<Game> games) async {
+    if (games.isEmpty) return;
+    final ids = games.map((g) => g.id).toList();
+    await (db.update(db.games)..where((g) => g.id.isIn(ids))).write(
+      const GamesCompanion(
+        status: Value('completed'),
+        manualOverride: Value(true),
+      ),
+    );
+    invalidateAll();
+  }
+
+  /// Moves all [games] back to the backlog, clearing completedAt.
+  Future<void> bulkMoveToBacklog(List<Game> games) async {
+    if (games.isEmpty) return;
+    final ids = games.map((g) => g.id).toList();
+    await (db.update(db.games)..where((g) => g.id.isIn(ids))).write(
+      const GamesCompanion(
+        status: Value('backlog'),
+        manualOverride: Value(true),
+        completedAt: Value(null),
+      ),
+    );
+    invalidateAll();
+  }
+
+  /// Deletes only manually-added games (appId < 0) from [games].
+  /// Returns the number of Steam games that were skipped.
+  Future<int> bulkDelete(List<Game> games) async {
+    final deletable = games.where((g) => g.appId < 0).toList();
+    final skipped = games.length - deletable.length;
+    if (deletable.isNotEmpty) {
+      final ids = deletable.map((g) => g.id).toList();
+      await (db.delete(db.games)..where((g) => g.id.isIn(ids))).go();
+      invalidateAll();
+    }
+    return skipped;
   }
 
   void invalidateAll() => invalidateLibraryProviders(ref);

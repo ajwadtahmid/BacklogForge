@@ -30,4 +30,15 @@ class SteamService {
         .map((g) => SteamGame.fromJson(g as Map<String, dynamic>))
         .toList();
   }
+
+  /// Fetches a single game's playtime by appId.
+  /// Returns the playtime in minutes, or null if not found.
+  Future<int?> getGamePlaytime(String steamId, int appId) async {
+    final games = await getOwnedGames(steamId);
+    final game = games.firstWhere(
+      (g) => g.appId == appId,
+      orElse: () => throw Exception('game_not_found'),
+    );
+    return game.playtimeMinutes;
+  }
 }

@@ -11,7 +11,7 @@ import 'stats_dao.dart';
 
 part 'app_database.g.dart';
 
-const int schemaVersionNumber = 7;
+const int schemaVersionNumber = 9;
 
 @DriftDatabase(tables: [Games, AppSettings], daos: [GamesDao, SettingsDao, StatsDao])
 class AppDatabase extends _$AppDatabase {
@@ -51,6 +51,12 @@ class AppDatabase extends _$AppDatabase {
       }
       if (fromVersion < 7) {
         await m.addColumn(games, games.playStyle);
+      }
+      if (fromVersion < 8) {
+        await m.addColumn(appSettings, appSettings.dailyBudgetHours);
+      }
+      if (fromVersion < 9) {
+        await m.addColumn(games, games.hltbName);
       }
     },
   );
