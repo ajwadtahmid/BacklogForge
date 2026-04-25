@@ -4,7 +4,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/auth_provider.dart';
+import '../services/app_logger.dart';
 import '../services/steam_auth_service.dart';
+
+/// Runs the Steam OpenID 2.0 auth flow: opens the browser, waits for the
+/// redirect, and verifies the Steam ID. Returns the verified Steam ID on
+/// success, or null on any failure (errors are reported via [authProvider]).
+Future<String?> _runSteamAuthFlow(WidgetRef ref) async {
+  try {
+    final svc = SteamAuthService();
+    final loginUrl = await svc.buildLoginUrl();
+    await launchUrl(loginUrl, mode: LaunchMode.externalApplication);
+    final redirect = await svc.awaitRedirect().timeout(
+      const Duration(minutes: 2),
+    );
+    return await svc.extractAndVerifySteamId(redirect);
+  } on TimeoutException {
+    ref.read(authProvider.notifier).setError('Sign-in timed out — please try again.');
+    return null;
+  } on SocketException {
+    ref.read(authProvider.notifier).setError('Could not start the local redirect server.');
+    return null;
+  } catch (e, st) {
+    AppLogger.instance.error('Steam auth flow failed', e, st);
+    ref.read(authProvider.notifier).setError('Something went wrong. Please try again.');
+    return null;
+  }
+}
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -15,33 +41,15 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   bool _busy = false;
 
-  /// Initiates the Steam OpenID 2.0 sign-in flow: launches the browser, waits for the redirect,
-  /// extracts the Steam ID, and updates the auth state.
   Future<void> _startSignIn() async {
     setState(() => _busy = true);
     try {
-      final svc = SteamAuthService();
-      final loginUrl = await svc.buildLoginUrl();
-      await launchUrl(loginUrl, mode: LaunchMode.externalApplication);
-      final redirect = await svc.awaitRedirect().timeout(
-        const Duration(minutes: 2),
-      );
-      final steamId = await svc.extractAndVerifySteamId(redirect);
+      final steamId = await _runSteamAuthFlow(ref);
       if (steamId == null) {
         ref.read(authProvider.notifier).failSignIn();
         return;
       }
       await ref.read(authProvider.notifier).completeSignIn(steamId);
-    } on TimeoutException {
-      ref
-          .read(authProvider.notifier)
-          .setError('Sign-in timed out — please try again.');
-    } on SocketException {
-      ref
-          .read(authProvider.notifier)
-          .setError('Could not start the local redirect server.');
-    } catch (e) {
-      ref.read(authProvider.notifier).setError('Unexpected error: $e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -50,7 +58,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authProvider);
-    final errorMsg = auth.whenOrNull(error: (e, _) => e.toString());
+    // Strip the "Exception: " prefix that Dart adds when converting to string.
+    final errorMsg = auth.whenOrNull(
+      error: (e, _) => e.toString().replaceFirst('Exception: ', ''),
+    );
     return Scaffold(
       body: Center(
         child: Padding(
@@ -76,7 +87,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
               const SizedBox(height: 12),
               OutlinedButton(
-                onPressed: _busy ? null : () => ref.read(authProvider.notifier).completeSignIn('guest_user'),
+                onPressed: _busy
+                    ? null
+                    : () => ref
+                        .read(authProvider.notifier)
+                        .completeSignIn(AuthNotifier.guestSteamId),
                 child: const Text('Use without Steam'),
               ),
               if (errorMsg != null) ...[
@@ -114,25 +129,13 @@ class _SignInSheetState extends ConsumerState<SignInSheet> {
   Future<void> _startSignIn() async {
     setState(() => _busy = true);
     try {
-      final svc = SteamAuthService();
-      final loginUrl = await svc.buildLoginUrl();
-      await launchUrl(loginUrl, mode: LaunchMode.externalApplication);
-      final redirect = await svc.awaitRedirect().timeout(
-        const Duration(minutes: 2),
-      );
-      final steamId = await svc.extractAndVerifySteamId(redirect);
+      final steamId = await _runSteamAuthFlow(ref);
       if (steamId == null) {
         if (mounted) Navigator.pop(context);
         return;
       }
       await ref.read(authProvider.notifier).completeSignIn(steamId);
       if (mounted) Navigator.pop(context);
-    } on TimeoutException {
-      ref.read(authProvider.notifier).setError('Sign-in timed out — please try again.');
-    } on SocketException {
-      ref.read(authProvider.notifier).setError('Could not start the local redirect server.');
-    } catch (e) {
-      ref.read(authProvider.notifier).setError('Unexpected error: $e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

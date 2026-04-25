@@ -6,7 +6,7 @@ from flask_cors import CORS
 from howlongtobeatpy import HowLongToBeat, HowLongToBeatEntry
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["https://backlogforge.onrender.com"])
 
 _MAX_QUERY_LEN = 100
 _STEAM_API_KEY = os.getenv('STEAM_API_KEY', '')

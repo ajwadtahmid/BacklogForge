@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../models/game.dart';
 import '../models/game_status.dart';
 import '../models/play_style.dart';
@@ -144,7 +145,7 @@ class _GameDetailScreenState extends ConsumerState<GameDetailScreen> {
             child: IconButton(
               icon:
                   const Icon(Icons.arrow_back, color: Colors.white, size: 20),
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => context.pop(),
             ),
           ),
         ),

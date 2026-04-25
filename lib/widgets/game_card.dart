@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../services/database/app_database.dart';
 import '../models/game.dart';
 import '../models/game_status.dart';
 import '../providers/game_actions_provider.dart';
-import '../screens/game_detail_screen.dart';
 
 /// A horizontal list row for a game, showing artwork, name, playtime progress,
 /// and HLTB estimates. Swipe right to delete (manual games) or see lock
@@ -201,11 +201,7 @@ class GameCard extends ConsumerWidget {
         ],
       ),
       child: InkWell(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => GameDetailScreen(game: game),
-          ),
-        ),
+        onTap: () => context.push('/library/game/${game.id}', extra: game),
         child: Container(
           color: isPlaying
               ? Colors.green.withValues(alpha: 0.08)

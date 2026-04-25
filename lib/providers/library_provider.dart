@@ -2,10 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
 import '../services/database/app_database.dart';
 import '../services/steam_service.dart';
+import '../services/app_logger.dart';
 import 'database_provider.dart';
 import 'auth_provider.dart';
-import 'stats_provider.dart';
-import 'sort_provider.dart';
+import 'provider_invalidation.dart';
 
 /// Provides the current user's backlog (backlog + playing) games.
 final backlogProvider = FutureProvider<List<Game>>((ref) async {
@@ -30,7 +30,36 @@ enum SyncStatus { idle, syncing, error }
 class SyncState {
   final SyncStatus status;
   final String? errorMessage;
-  const SyncState({this.status = SyncStatus.idle, this.errorMessage});
+  final int? hltbCurrent;
+  final int? hltbTotal;
+  /// Human-readable post-sync notification (auto-completions, HLTB failures).
+  final String? notification;
+  const SyncState({
+    this.status = SyncStatus.idle,
+    this.errorMessage,
+    this.hltbCurrent,
+    this.hltbTotal,
+    this.notification,
+  });
+}
+
+/// Maps raw exceptions from the sync pipeline to user-friendly messages.
+String _friendlySyncError(Object e) {
+  final raw = e.toString();
+  if (raw.contains('profile_private')) {
+    return 'Steam profile is private — make it public to sync.';
+  }
+  if (raw.contains('steam_api_error') || raw.contains('steam_api_timeout')) {
+    return 'Could not reach Steam. Please try again later.';
+  }
+  if (raw.contains('Not signed in')) return 'You are not signed in.';
+  if (raw.contains('TimeoutException')) {
+    return 'The server took too long to respond — it may be waking up. Please try again in a moment.';
+  }
+  if (raw.contains('SocketException') || raw.contains('network')) {
+    return 'No internet connection. Please check your network.';
+  }
+  return 'Sync failed. Please try again.';
 }
 
 final syncStateProvider =
@@ -83,20 +112,41 @@ class SyncNotifier extends Notifier<SyncState> {
       });
 
       final allGames = await db.gamesDao.getAllGames(steamId);
-      await db.gamesDao.fetchAllTimeToBeat(allGames);
+      final hltbResult = await db.gamesDao.fetchAllTimeToBeat(
+        allGames,
+        onProgress: (current, total) {
+          state = SyncState(
+            status: SyncStatus.syncing,
+            hltbCurrent: current,
+            hltbTotal: total,
+          );
+        },
+      );
 
       // Always recalculate — status correctness matters more than skipping a
       // cheap pass. The recalculator already diffs and skips unchanged rows.
-      await db.gamesDao.recalculateAllStatuses(steamId);
-      ref.invalidate(backlogProvider);
-      ref.invalidate(completedProvider);
-      ref.invalidate(statsProvider);
-      ref.invalidate(backlogSortedProvider);
-      ref.invalidate(completedSortedProvider);
+      final autoCompleted = await db.gamesDao.recalculateAllStatuses(steamId);
+      invalidateLibraryProviders(ref);
 
-      state = const SyncState();
-    } catch (e) {
-      state = SyncState(status: SyncStatus.error, errorMessage: e.toString());
+      final parts = <String>[];
+      if (autoCompleted > 0) {
+        final s = autoCompleted == 1 ? 'game' : 'games';
+        parts.add('$autoCompleted $s automatically marked completed based on playtime.');
+      }
+      if (hltbResult.failed > 0) {
+        final s = hltbResult.failed == 1 ? 'game' : 'games';
+        parts.add('HLTB data unavailable for ${hltbResult.failed} $s — tap a game to set hours manually.');
+      }
+
+      state = SyncState(
+        notification: parts.isEmpty ? null : parts.join('\n'),
+      );
+    } catch (e, st) {
+      AppLogger.instance.error('Sync failed', e, st);
+      state = SyncState(
+        status: SyncStatus.error,
+        errorMessage: _friendlySyncError(e),
+      );
     }
   }
 }

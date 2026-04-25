@@ -1,12 +1,13 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../providers/search_provider.dart';
 import '../providers/database_provider.dart';
 import '../providers/auth_provider.dart';
-import '../providers/library_provider.dart';
-import '../providers/sort_provider.dart';
-import '../providers/stats_provider.dart';
+import '../providers/game_actions_provider.dart';
+import '../services/app_logger.dart';
 import '../models/game_search_result.dart';
 import '../models/time_to_beat.dart';
 
@@ -86,22 +87,19 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
       await db.gamesDao.addManualGame(gameName, timeToBeat, steamId,
           artworkUrl: artworkUrl);
 
-      ref.invalidate(backlogProvider);
-      ref.invalidate(completedProvider);
-      ref.invalidate(statsProvider);
-      ref.invalidate(backlogSortedProvider);
-      ref.invalidate(completedSortedProvider);
+      ref.read(gameActionsProvider).invalidateAll();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Added "$gameName" to backlog')),
         );
-        Navigator.of(context).pop();
+        context.pop();
       }
-    } catch (e) {
+    } catch (e, st) {
+      AppLogger.instance.error('Failed to add game "$gameName"', e, st);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add game: $e')),
+          const SnackBar(content: Text('Failed to add game. Please try again.')),
         );
       }
     } finally {
@@ -163,10 +161,23 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
                                       leading: SizedBox(
                                         width: 50,
                                         child: result.artworkUrl != null
-                                            ? Image.network(
-                                                result.artworkUrl!,
+                                            ? CachedNetworkImage(
+                                                imageUrl: result.artworkUrl!,
                                                 fit: BoxFit.cover,
-                                                errorBuilder: (context, url, error) =>
+                                                placeholder: (context, url) =>
+                                                    Container(
+                                                  color: Colors.grey[300],
+                                                  child: const Center(
+                                                    child: SizedBox(
+                                                      width: 16,
+                                                      height: 16,
+                                                      child: CircularProgressIndicator(
+                                                        strokeWidth: 2,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                errorWidget: (context, url, error) =>
                                                     Container(
                                                   color: Colors.grey[300],
                                                   child: const Icon(

@@ -1,9 +1,9 @@
 import 'package:drift/drift.dart';
-import 'package:flutter/foundation.dart';
 import 'app_database.dart';
 import 'tables.dart';
 import '../hltb_service.dart';
 import '../status_calculator.dart';
+import '../app_logger.dart';
 import '../../models/time_to_beat.dart';
 import '../../models/game_status.dart';
 
@@ -81,40 +81,56 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
   }
 
   /// Fetches time-to-beat data from HLTB for any game that doesn't have it yet.
-  /// Returns the number of games that received new data.
-  Future<int> fetchAllTimeToBeat(List<Game> allGames) async {
+  /// Requests are sequential with a 300ms gap between each to avoid rate-limiting
+  /// the HLTB scraper on the backend.
+  /// [onProgress] is called after each game is processed with (current, total).
+  /// Returns a record with [fetched] (games that received data) and [failed]
+  /// (games where the lookup threw a network/server error, excluding no-match).
+  Future<({int fetched, int failed})> fetchAllTimeToBeat(
+    List<Game> allGames, {
+    void Function(int current, int total)? onProgress,
+  }) async {
+    final toFetch = allGames
+        .where((g) =>
+            !g.manualOverride &&
+            g.essentialHours == null &&
+            g.extendedHours == null &&
+            g.completionistHours == null)
+        .toList();
+
     int fetched = 0;
-    for (final g in allGames) {
-      if (g.manualOverride ||
-          g.essentialHours != null ||
-          g.extendedHours != null ||
-          g.completionistHours != null) {
-        continue;
-      }
+    int failed = 0;
+
+    for (int i = 0; i < toFetch.length; i++) {
+      final g = toFetch[i];
+      TimeToBeat? data;
       try {
-        final data = await _hltb.lookup(g.name);
-        if (data != null) {
-          fetched++;
-          await (db.update(db.games)..where((tbl) => tbl.id.equals(g.id)))
-              .write(
-            GamesCompanion(
-              essentialHours: Value(data.essentialHours),
-              extendedHours: Value(data.extendedHours),
-              completionistHours: Value(data.completionistHours),
-            ),
-          );
-        }
+        data = await _hltb.lookup(g.name);
       } catch (e) {
-        debugPrint('HLTB lookup failed for "${g.name}": $e');
+        failed++;
+        AppLogger.instance.warning('HLTB lookup failed for "${g.name}"', e);
       }
-      await Future.delayed(const Duration(milliseconds: 300));
+      if (data != null) {
+        fetched++;
+        await (db.update(db.games)..where((tbl) => tbl.id.equals(g.id)))
+            .write(GamesCompanion(
+          essentialHours: Value(data.essentialHours),
+          extendedHours: Value(data.extendedHours),
+          completionistHours: Value(data.completionistHours),
+        ));
+      }
+      onProgress?.call(i + 1, toFetch.length);
+      if (i < toFetch.length - 1) {
+        await Future.delayed(const Duration(milliseconds: 300));
+      }
     }
-    return fetched;
+    return (fetched: fetched, failed: failed);
   }
 
   /// Re-derives the status for every non-overridden game based on current playtime
   /// and the user's chosen completion threshold.
-  Future<void> recalculateAllStatuses(String steamId) async {
+  /// Returns the number of games that were auto-completed during this pass.
+  Future<int> recalculateAllStatuses(String steamId) async {
     final allGames = await getAllGames(steamId);
 
     final settings = await (db.select(db.appSettings)
@@ -124,6 +140,7 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
     final threshold = _parseThreshold(thresholdStr);
 
     final now = DateTime.now();
+    int autoCompleted = 0;
     await db.transaction(() async {
       for (final game in allGames) {
         // A completed game the user deliberately re-marked as "playing" keeps
@@ -135,7 +152,14 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
         }
 
         final newStatus = calculateStatus(game, threshold);
-        if (newStatus.name == game.status) continue;
+        // Skip if status is unchanged, unless completedAt still needs stamping
+        // (edge case: games completed before the timestamp column was added).
+        final needsStamp = newStatus == GameStatus.completed && game.completedAt == null;
+        if (newStatus.name == game.status && !needsStamp) continue;
+
+        if (newStatus == GameStatus.completed && game.status != 'completed') {
+          autoCompleted++;
+        }
 
         await (db.update(db.games)..where((g) => g.id.equals(game.id))).write(
           GamesCompanion(
@@ -150,6 +174,7 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
         );
       }
     });
+    return autoCompleted;
   }
 
   /// Inserts a manually-searched game with a negative appId (to distinguish it
@@ -189,104 +214,52 @@ class GamesDao extends DatabaseAccessor<AppDatabase> with _$GamesDaoMixin {
         CompletionThreshold.essential;
   }
 
-  List<OrderClauseGenerator<$GamesTable>> _orderForBacklog(SortMode mode) {
-    switch (mode) {
-      case SortMode.alphabetical:
-        return [
-          (g) => OrderingTerm(expression: g.name, mode: OrderingMode.asc)
-        ];
-      case SortMode.progress:
-        return [
-          (g) => OrderingTerm.desc(
-                const CustomExpression<double>(
-                  "CAST(playtime_minutes AS REAL) / 60.0 / "
-                  "CASE play_style "
-                  "WHEN 'extended' THEN COALESCE(extended_hours, essential_hours, 9999.0) "
-                  "WHEN 'completionist' THEN COALESCE(completionist_hours, extended_hours, essential_hours, 9999.0) "
-                  "ELSE COALESCE(essential_hours, 9999.0) END",
-                ),
-              ),
-        ];
-      case SortMode.shortest:
-        // Shortest remaining time: (target - played). Games with no HLTB data go to end.
-        return [
-          (g) => OrderingTerm(
-              expression: const CustomExpression<double>(
-                "COALESCE(essential_hours, extended_hours, completionist_hours)"
-              ).isNull(),
-              mode: OrderingMode.asc),
-          (g) => OrderingTerm.asc(
-            const CustomExpression<double>(
-              "COALESCE(essential_hours, extended_hours, completionist_hours) - CAST(playtime_minutes AS REAL) / 60.0"
-            ),
-          ),
-        ];
-      case SortMode.longest:
-        // Longest remaining time: (target - played). Games with no HLTB data go to end.
-        return [
-          (g) => OrderingTerm(
-              expression: const CustomExpression<double>(
-                "COALESCE(essential_hours, extended_hours, completionist_hours)"
-              ).isNull(),
-              mode: OrderingMode.asc),
-          (g) => OrderingTerm.desc(
-            const CustomExpression<double>(
-              "COALESCE(essential_hours, extended_hours, completionist_hours) - CAST(playtime_minutes AS REAL) / 60.0"
-            ),
-          ),
-        ];
-      case SortMode.mostPlayed:
-        return [(g) => OrderingTerm.desc(g.playtimeMinutes)];
-      case SortMode.neglected:
-        return [(g) => OrderingTerm.asc(g.addedAt)];
-    }
-  }
+  // Backlog sorts by remaining time (target − played); completed sorts by absolute hours.
+  List<OrderClauseGenerator<$GamesTable>> _orderForBacklog(SortMode mode) =>
+      _baseOrder(mode, remaining: true);
 
-  List<OrderClauseGenerator<$GamesTable>> _orderFor(SortMode mode) {
+  List<OrderClauseGenerator<$GamesTable>> _orderFor(SortMode mode) =>
+      _baseOrder(mode);
+
+  /// Single ordering implementation shared by backlog and completed sorts.
+  /// [remaining] = true subtracts playtime from the HLTB target (backlog);
+  /// [remaining] = false uses absolute target hours (completed).
+  List<OrderClauseGenerator<$GamesTable>> _baseOrder(
+    SortMode mode, {
+    bool remaining = false,
+  }) {
+    const nullGuard = CustomExpression<double>(
+      "COALESCE(essential_hours, extended_hours, completionist_hours)",
+    );
+    const progressExpr = CustomExpression<double>(
+      "CAST(playtime_minutes AS REAL) / 60.0 / "
+      "CASE play_style "
+      "WHEN 'extended' THEN COALESCE(extended_hours, essential_hours, 9999.0) "
+      "WHEN 'completionist' THEN COALESCE(completionist_hours, extended_hours, essential_hours, 9999.0) "
+      "ELSE COALESCE(essential_hours, 9999.0) END",
+    );
+    const remainingExpr = CustomExpression<double>(
+      "COALESCE(essential_hours, extended_hours, completionist_hours) - CAST(playtime_minutes AS REAL) / 60.0",
+    );
+
     switch (mode) {
       case SortMode.alphabetical:
-        return [
-          (g) => OrderingTerm(expression: g.name, mode: OrderingMode.asc)
-        ];
+        return [(g) => OrderingTerm(expression: g.name, mode: OrderingMode.asc)];
       case SortMode.progress:
-        // Sort by (hours played) / (target hours from stored play_style), DESC.
-        // Games with no HLTB estimate sink to the bottom (9999 denominator).
-        return [
-          (g) => OrderingTerm.desc(
-                const CustomExpression<double>(
-                  "CAST(playtime_minutes AS REAL) / 60.0 / "
-                  "CASE play_style "
-                  "WHEN 'extended' THEN COALESCE(extended_hours, essential_hours, 9999.0) "
-                  "WHEN 'completionist' THEN COALESCE(completionist_hours, extended_hours, essential_hours, 9999.0) "
-                  "ELSE COALESCE(essential_hours, 9999.0) END",
-                ),
-              ),
-        ];
+        // Denominator uses 9999 so games without HLTB data sink to the bottom.
+        return [(g) => OrderingTerm.desc(progressExpr)];
       case SortMode.shortest:
+        // Games with no HLTB data go to end; then sort ascending by hours.
+        final hoursExpr = remaining ? remainingExpr : nullGuard;
         return [
-          (g) => OrderingTerm(
-              expression: const CustomExpression<double>(
-                "COALESCE(essential_hours, extended_hours, completionist_hours)"
-              ).isNull(),
-              mode: OrderingMode.asc),
-          (g) => OrderingTerm.asc(
-            const CustomExpression<double>(
-              "COALESCE(essential_hours, extended_hours, completionist_hours)"
-            ),
-          ),
+          (g) => OrderingTerm(expression: nullGuard.isNull(), mode: OrderingMode.asc),
+          (g) => OrderingTerm.asc(hoursExpr),
         ];
       case SortMode.longest:
+        final hoursExpr = remaining ? remainingExpr : nullGuard;
         return [
-          (g) => OrderingTerm(
-              expression: const CustomExpression<double>(
-                "COALESCE(essential_hours, extended_hours, completionist_hours)"
-              ).isNull(),
-              mode: OrderingMode.asc),
-          (g) => OrderingTerm.desc(
-            const CustomExpression<double>(
-              "COALESCE(essential_hours, extended_hours, completionist_hours)"
-            ),
-          ),
+          (g) => OrderingTerm(expression: nullGuard.isNull(), mode: OrderingMode.asc),
+          (g) => OrderingTerm.desc(hoursExpr),
         ];
       case SortMode.mostPlayed:
         return [(g) => OrderingTerm.desc(g.playtimeMinutes)];

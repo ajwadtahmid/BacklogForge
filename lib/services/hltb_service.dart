@@ -2,12 +2,13 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/game_search_result.dart';
 import '../models/time_to_beat.dart';
+import 'api_config.dart';
 
 /// Communicates with the self-hosted HowLongToBeat proxy on Render.
 /// The proxy wraps the howlongtobeatpy Python library so the app stays
 /// cross-platform without any native dependencies.
 class HltbService {
-  static const _baseUrl = 'https://backlogforge.onrender.com';
+  static const _baseUrl = ApiConfig.backendUrl;
   static const _timeout = Duration(seconds: 15);
 
   /// Returns up to [limit] search results matching [query].

@@ -29,6 +29,7 @@ class _SignedIn extends AuthState {
 /// Manages authentication state, loading persisted session on startup and handling sign-in/sign-out.
 class AuthNotifier extends AsyncNotifier<AuthState> {
   static const _steamIdKey = 'steam_id';
+  static const guestSteamId = 'guest_user';
   final _secureStorage = const FlutterSecureStorage();
 
   @override
@@ -50,7 +51,7 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
   /// For guest users, skips secure storage persistence.
   Future<void> completeSignIn(String steamId) async {
     try {
-      final isGuest = steamId == 'guest_user';
+      final isGuest = steamId == AuthNotifier.guestSteamId;
       if (!isGuest) {
         await _secureStorage.write(key: _steamIdKey, value: steamId);
       }

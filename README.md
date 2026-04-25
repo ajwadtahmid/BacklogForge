@@ -2,17 +2,13 @@
 
 Know what to play. Actually finish it.
 
----
-
-## Overview
+## Description / Overview
 
 BacklogForge connects to your Steam account, imports your game library, and helps you decide what to play next. It pulls completion time estimates from HowLongToBeat and compares them against your actual playtime to automatically track which games you have finished, which are in progress, and which are still sitting in your backlog.
 
-The application is designed for PC gamers who own large Steam libraries and want a structured, low-friction way to manage them without relying on spreadsheets or third-party web services that do not respect your data.
+Designed for PC gamers who own large Steam libraries and want a structured, low-friction way to manage them — no spreadsheets, no third-party accounts, all data stored locally.
 
----
-
-## Screenshots
+## Demo
 
 <table>
   <tr>
@@ -25,17 +21,14 @@ The application is designed for PC gamers who own large Steam libraries and want
   </tr>
 </table>
 
-
----
-
 ## Installation
 
 ### Prerequisites
 
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) 3.x or later
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) `^3.41`
 - Dart SDK (bundled with Flutter)
-- Python 3.10 or later (only required if self-hosting the completion-time proxy)
-- A Steam account with a public game library
+- Python 3.10 or later (only if self-hosting the backend)
+- A Steam account with a public game library (optional — guest mode available)
 
 ### Clone the repository
 
@@ -58,11 +51,11 @@ BacklogForge uses Drift for its local database. The generated files must be buil
 dart run build_runner build
 ```
 
-### Backend setup
+### Backend
 
-The app requires a running backend server for Steam API calls. The backend is hosted at `backlogforge.onrender.com` by default.
+The app connects to a hosted backend at `backlogforge.onrender.com` by default — no extra setup needed.
 
-To self-host, deploy your own instance of `server/app.py`:
+To self-host, deploy `server/app.py` and update the URL in `lib/services/api_config.dart`:
 
 ```bash
 cd server
@@ -70,9 +63,14 @@ pip install -r requirements.txt
 flask run
 ```
 
-Then update the `_backendUrl` constant in `lib/services/steam_service.dart` and `lib/services/hltb_service.dart` to point at your backend.
+```dart
+// lib/services/api_config.dart
+abstract final class ApiConfig {
+  static const backendUrl = 'https://your-backend-url.com';
+}
+```
 
----
+The backend requires a Steam API key. Set it as `STEAM_API_KEY` in your environment or in a `.env` file under `server/`. Obtain a key from the [Steam Web API portal](https://steamcommunity.com/dev/apikey).
 
 ## Usage
 
@@ -82,79 +80,71 @@ Then update the `_backendUrl` constant in `lib/services/steam_service.dart` and 
 flutter run
 ```
 
-### Build for a specific platform
+### Build for release
 
 ```bash
-# Android
-flutter build apk
-flutter build appbundle
+# Android (AAB for Play Store)
+flutter build appbundle --release
 
 # Windows
-flutter build windows
+flutter build windows --release
 
 # Linux
-flutter build linux
+flutter build linux --release
 ```
 
-On first launch, sign in with your Steam account. BacklogForge will sync your library and begin fetching completion time estimates in the background. Games are sorted into four tabs: **Backlog**, **Playing**, **Completed**, and **All**.
+On first launch, sign in with your Steam account or continue as a guest. When signed in, BacklogForge syncs your library and fetches HowLongToBeat estimates in the background with live progress. Games are organised across four tabs:
 
-Use the refresh button in the toolbar to re-sync with Steam at any time. Games can also be added manually through the search interface if they are not in your Steam library.
+| Tab | Contents |
+|---|---|
+| **Backlog** | Games you haven't finished yet, sortable and searchable |
+| **Completed** | Games you've beaten, with completion dates |
+| **Play Next** | Shuffle or "Almost Done" recommendations from your backlog |
+| **Stats** | Backlog size, hours remaining, completion rate and grade |
 
----
+Use the refresh button in the toolbar to re-sync with Steam. Games can also be added manually through the search interface for titles not in your Steam library.
 
 ## Features
 
 - **Steam library sync** — imports all games from your Steam account automatically
-- **HowLongToBeat integration** — fetches main story, main plus extras, and completionist estimates for each title
-- **Automatic completion detection** — marks a game as completed when your playtime meets or exceeds the target threshold
-- **Configurable thresholds** — choose between essential, extended, or completionist as your personal completion target
-- **Manual status override** — set any game to playing or completed regardless of playtime
-- **Play Next recommendation** — surfaces the most suitable backlog title based on your preferences
-- **Library statistics** — summary view of total playtime, completion rate, and backlog size
+- **Guest / offline mode** — use the app without a Steam account; add games manually
+- **HowLongToBeat integration** — fetches Essential, Extended, and Completionist estimates per title
+- **Sync progress feedback** — live counter shows HLTB fetch progress during sync
+- **Automatic completion detection** — marks a game completed when playtime meets the target
+- **Configurable play style** — choose Essential, Extended, or Completionist as your personal target per game
+- **Manual status override** — set any game to Playing or Completed regardless of playtime
+- **Play Next recommendation** — weighted shuffle or "Almost Done" filter to surface what to play
+- **Library statistics** — completion grade (A+ → D), hours to clear backlog, monthly activity
 - **Manual game search** — add titles that are not in your Steam library
 - **Dark and light theme** — persisted across sessions
-- **Offline-first** — all data is stored locally in a SQLite database; no account or cloud sync required beyond the initial Steam import
+- **Offline-first** — all data stored locally in SQLite; no cloud sync required
 
----
-
-## Tech Stack
+## Tech Stack / Built With
 
 | Layer | Technology |
 |---|---|
 | UI framework | Flutter (Dart) |
 | State management | Riverpod |
+| Navigation | go_router |
 | Local database | Drift (SQLite) |
 | Secure storage | flutter_secure_storage |
 | Completion time data | HowLongToBeat (via self-hosted proxy) |
 | Proxy backend | Python, Flask, howlongtobeatpy |
 | Image caching | cached_network_image |
-| Platforms | Android, iOS, Windows, Linux, macOS |
+| CI / CD | GitHub Actions (analyze, test, Windows / Linux / Android builds) |
+| Platforms | Android, Windows, Linux |
 
----
+## Contributing
 
-## Environment Setup
-
-### Steam API Key (Backend)
-
-The backend server needs a Steam API key to fetch user game libraries. If you are self-hosting the backend:
-
-1. Obtain a key from the [Steam Web API portal](https://steamcommunity.com/dev/apikey)
-2. Set the domain to your backend URL or `localhost` for local development
-
-**On Render (cloud deployment):**
-- Go to your service dashboard
-- Navigate to **Environment** → **Add Environment Variable**
-- Add `STEAM_API_KEY` with your API key value
-- Redeploy the service
-
-**Locally (for development):**
-- Create a `.env` file in the `server/` directory:
-  ```
-  STEAM_API_KEY=your_api_key_here
-  ```
-
----
+Pull requests are welcome. For significant changes, open an issue first to discuss what you'd like to change. Please make sure `flutter analyze` and `flutter test` pass before submitting.
 
 ## License
 
 BacklogForge is distributed under the [GNU General Public License v3.0](LICENSE). You are free to use, modify, and distribute this software under the terms of that license.
+
+## Credits / Acknowledgments
+
+- [HowLongToBeat](https://howlongtobeat.com) for game completion time data
+- [howlongtobeatpy](https://github.com/ScrappyCocco/HowLongToBeat-PythonAPI) for the Python scraper library
+- [Valve / Steam](https://store.steampowered.com) for the Web API
+- [Claude Code](https://claude.ai/code) - Parts of this project were built with the assistance of Claude

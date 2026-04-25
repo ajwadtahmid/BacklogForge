@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/steam_game.dart';
+import 'api_config.dart';
 
 /// Communicates with the BacklogForge backend to fetch user game libraries.
 /// The backend handles all Steam API calls securely.
 class SteamService {
-  static const _backendUrl = 'https://backlogforge.onrender.com';
-  static const _timeout = Duration(seconds: 15);
+  static const _backendUrl = ApiConfig.backendUrl;
+  // 45 s to accommodate Render free-tier cold starts (~30 s spin-up time).
+  static const _timeout = Duration(seconds: 45);
 
   /// Fetches the user's owned games from the backend.
   /// The backend securely calls the Steam API using STEAM_API_KEY.
