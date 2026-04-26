@@ -12,12 +12,12 @@ Designed for PC gamers who own large Steam libraries and want a structured, low-
 
 <table>
   <tr>
-    <td><img src="store_assets/screenshots/desktop/Screenshot_1.png" alt="Game library with playtime progress bars, search, and sorting filters" width="400"/></td>
-    <td><img src="store_assets/screenshots/desktop/Screenshot_2.png" alt="Completed games list with status filters and completion tracking" width="400"/></td>
+    <td><img src="assets/screenshots/desktop/Screenshot_1.png" alt="Game library with playtime progress bars, search, and sorting filters" width="400"/></td>
+    <td><img src="assets/screenshots/desktop/Screenshot_2.png" alt="Completed games list with status filters and completion tracking" width="400"/></td>
   </tr>
   <tr>
-    <td><img src="store_assets/screenshots/desktop/Screenshot_3.png" alt="Play Next recommendations showing suggested games to play next" width="400"/></td>
-    <td><img src="store_assets/screenshots/desktop/Screenshot_4.png" alt="Library statistics dashboard with completion rate and playtime summary" width="400"/></td>
+    <td><img src="assets/screenshots/desktop/Screenshot_3.png" alt="Play Next recommendations showing suggested games to play next" width="400"/></td>
+    <td><img src="assets/screenshots/desktop/Screenshot_4.png" alt="Library statistics dashboard with completion rate and playtime summary" width="400"/></td>
   </tr>
 </table>
 
