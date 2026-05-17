@@ -34,12 +34,7 @@ class _GameDetailScreenState extends ConsumerState<GameDetailScreen> {
     _playStyle = widget.game.playStyle.toPlayStyle;
   }
 
-  double? _targetHours(Game game) => switch (_playStyle) {
-        PlayStyle.extended => game.extendedHours ?? game.essentialHours,
-        PlayStyle.completionist =>
-          game.completionistHours ?? game.extendedHours ?? game.essentialHours,
-        PlayStyle.essential => game.essentialHours,
-      };
+  double? _targetHours(Game game) => resolveTargetHours(game, _playStyle);
 
   Future<void> _setStatus(Game game, GameStatus next) async {
     if (next == _status || _saving) return;
@@ -520,6 +515,7 @@ class _PlaytimeDialog extends StatefulWidget {
 
 class _PlaytimeDialogState extends State<_PlaytimeDialog> {
   late final TextEditingController _ctrl;
+  String? _error;
 
   @override
   void initState() {
@@ -531,6 +527,15 @@ class _PlaytimeDialogState extends State<_PlaytimeDialog> {
   void dispose() {
     _ctrl.dispose();
     super.dispose();
+  }
+
+  void _submit() {
+    final hours = double.tryParse(_ctrl.text.trim());
+    if (hours == null || hours < 0) {
+      setState(() => _error = 'Enter a valid number (e.g. 12.5)');
+      return;
+    }
+    Navigator.pop(context, hours);
   }
 
   @override
@@ -545,10 +550,12 @@ class _PlaytimeDialogState extends State<_PlaytimeDialog> {
             controller: _ctrl,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             autofocus: true,
-            decoration: const InputDecoration(
+            onChanged: (_) => setState(() => _error = null),
+            decoration: InputDecoration(
               labelText: 'Hours played',
               suffixText: 'h',
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
+              errorText: _error,
             ),
           ),
           if (widget.isSteamGame) ...[
@@ -566,10 +573,7 @@ class _PlaytimeDialogState extends State<_PlaytimeDialog> {
           child: const Text('Cancel'),
         ),
         FilledButton(
-          onPressed: () {
-            final hours = double.tryParse(_ctrl.text.trim());
-            if (hours != null && hours >= 0) Navigator.pop(context, hours);
-          },
+          onPressed: _submit,
           child: const Text('Save'),
         ),
       ],

@@ -25,8 +25,14 @@ class SteamService {
       throw Exception('steam_api_error');
     }
 
-    final games = jsonDecode(res.body) as List;
-    return games
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(res.body);
+    } catch (_) {
+      throw Exception('steam_api_error');
+    }
+    if (decoded is! List) throw Exception('steam_api_error');
+    return decoded
         .map((g) => SteamGame.fromJson(g as Map<String, dynamic>))
         .toList();
   }

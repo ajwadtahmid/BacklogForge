@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
 import 'app_database.dart';
 import 'tables.dart';
+import '../../models/game.dart';
+import '../../models/game_status.dart';
 
 part 'stats_dao.g.dart';
 
@@ -19,7 +21,6 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
   StatsDao(super.db);
 
   /// All per-status counts and total playtime in a single SQL pass.
-  /// Replaces the four individual count/sum queries.
   Future<({int backlog, int completed, int playing, double totalHours})>
       _aggregateCounts(String steamId) async {
     const backlogExpr = CustomExpression<int>(
@@ -80,7 +81,7 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
     final query = selectOnly(games)
       ..addColumns([count])
       ..where(
-        games.status.isIn(['backlog', 'playing']) &
+        games.status.isIn([GameStatus.backlog.name, GameStatus.playing.name]) &
             games.steamId.equals(steamId),
       );
     final row = await query.getSingle();
@@ -97,7 +98,7 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
     final rows = await (select(games)
           ..where(
             (g) =>
-                g.status.isIn(['backlog', 'playing']) &
+                g.status.isIn([GameStatus.backlog.name, GameStatus.playing.name]) &
                 g.steamId.equals(steamId),
           ))
         .get();
@@ -108,7 +109,7 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
     for (final g in rows) {
       if (g.playtimeMinutes == 0) neverStarted++;
 
-      final target = _targetHours(g);
+      final target = g.targetHours ?? g.targetHoursWithFallback;
       if (target == null || target <= 0) continue;
 
       hltbCovered++;
@@ -151,7 +152,7 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
     final query = selectOnly(games)
       ..addColumns([count])
       ..where(
-        games.status.equals('completed') &
+        games.status.equals(GameStatus.completed.name) &
             games.steamId.equals(steamId) &
             games.completedAt.isBiggerOrEqualValue(startOfWindow),
       );
@@ -165,7 +166,7 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
     final query = selectOnly(games)
       ..addColumns([count])
       ..where(
-        games.status.equals('completed') & games.steamId.equals(steamId),
+        games.status.equals(GameStatus.completed.name) & games.steamId.equals(steamId),
       );
     final row = await query.getSingle();
     return row.read(count) ?? 0;
@@ -176,19 +177,9 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
     final count = games.id.count();
     final query = selectOnly(games)
       ..addColumns([count])
-      ..where(games.status.equals('playing') & games.steamId.equals(steamId));
+      ..where(games.status.equals(GameStatus.playing.name) & games.steamId.equals(steamId));
     final row = await query.getSingle();
     return row.read(count) ?? 0;
   }
 
-  /// Resolves target hours respecting the game's stored playStyle.
-  double? _targetHours(Game g) {
-    final double? preferred = switch (g.playStyle) {
-      'extended' => g.extendedHours ?? g.essentialHours,
-      'completionist' =>
-        g.completionistHours ?? g.extendedHours ?? g.essentialHours,
-      _ => g.essentialHours,
-    };
-    return preferred ?? g.extendedHours ?? g.completionistHours;
-  }
 }

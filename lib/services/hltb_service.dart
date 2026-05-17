@@ -25,8 +25,14 @@ class HltbService {
       throw Exception('HLTB search failed (${res.statusCode})');
     }
 
-    final list = jsonDecode(res.body) as List;
-    return list
+    final dynamic decoded;
+    try {
+      decoded = jsonDecode(res.body);
+    } catch (_) {
+      throw Exception('HLTB search failed: invalid response');
+    }
+    if (decoded is! List) throw Exception('HLTB search failed: unexpected response format');
+    return decoded
         .map(
           (item) => GameSearchResult(
             name: item['name'] as String,
@@ -67,7 +73,12 @@ class HltbService {
       throw Exception('HLTB lookup failed (${res.statusCode})');
     }
 
-    final body = jsonDecode(res.body);
+    final dynamic body;
+    try {
+      body = jsonDecode(res.body);
+    } catch (_) {
+      throw Exception('HLTB lookup failed: invalid response');
+    }
     if (body == null) return null;
 
     return TimeToBeat(

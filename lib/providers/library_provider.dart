@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import '../services/database/app_database.dart';
 import '../services/steam_service.dart';
 import '../services/app_logger.dart';
+import '../models/steam_game.dart';
 import 'database_provider.dart';
 import 'auth_provider.dart';
 import 'provider_invalidation.dart';
@@ -83,33 +84,9 @@ class SyncNotifier extends Notifier<SyncState> {
       if (steamId == null) throw Exception('Not signed in');
 
       final db = ref.read(databaseProvider);
-
       final steamGames = await _steamService.getOwnedGames(steamId);
-      final now = DateTime.now();
 
-      // Upsert every Steam game: insert on first sync, update playtime on subsequent syncs.
-      await db.transaction(() async {
-        for (final game in steamGames) {
-          await db.into(db.games).insert(
-            GamesCompanion.insert(
-              steamId: steamId,
-              appId: game.appId,
-              name: game.name,
-              playtimeMinutes: Value(game.playtimeMinutes),
-              lastPlayedAt: Value(game.lastPlayedAt),
-              addedAt: now,
-            ),
-            onConflict: DoUpdate(
-              (old) => GamesCompanion(
-                name: Value(game.name),
-                playtimeMinutes: Value(game.playtimeMinutes),
-                lastPlayedAt: Value(game.lastPlayedAt),
-              ),
-              target: [db.games.appId, db.games.steamId],
-            ),
-          );
-        }
-      });
+      await _upsertSteamGames(db, steamGames, steamId);
 
       final allGames = await db.gamesDao.getAllGames(steamId);
       final hltbResult = await db.gamesDao.fetchAllTimeToBeat(
@@ -128,19 +105,7 @@ class SyncNotifier extends Notifier<SyncState> {
       final autoCompleted = await db.gamesDao.recalculateAllStatuses(steamId);
       invalidateLibraryProviders(ref);
 
-      final parts = <String>[];
-      if (autoCompleted > 0) {
-        final s = autoCompleted == 1 ? 'game' : 'games';
-        parts.add('$autoCompleted $s automatically marked completed based on playtime.');
-      }
-      if (hltbResult.failed > 0) {
-        final s = hltbResult.failed == 1 ? 'game' : 'games';
-        parts.add('HLTB data unavailable for ${hltbResult.failed} $s — tap a game to set hours manually.');
-      }
-
-      state = SyncState(
-        notification: parts.isEmpty ? null : parts.join('\n'),
-      );
+      state = SyncState(notification: _buildSyncNotification(autoCompleted, hltbResult));
     } catch (e, st) {
       AppLogger.instance.error('Sync failed', e, st);
       state = SyncState(
@@ -148,6 +113,52 @@ class SyncNotifier extends Notifier<SyncState> {
         errorMessage: _friendlySyncError(e),
       );
     }
+  }
+
+  static Future<void> _upsertSteamGames(
+    AppDatabase db,
+    List<SteamGame> steamGames,
+    String steamId,
+  ) async {
+    final now = DateTime.now();
+    await db.transaction(() async {
+      for (final game in steamGames) {
+        await db.into(db.games).insert(
+          GamesCompanion.insert(
+            steamId: steamId,
+            appId: game.appId,
+            name: game.name,
+            playtimeMinutes: Value(game.playtimeMinutes),
+            lastPlayedAt: Value(game.lastPlayedAt),
+            addedAt: now,
+          ),
+          onConflict: DoUpdate(
+            (old) => GamesCompanion(
+              name: Value(game.name),
+              playtimeMinutes: Value(game.playtimeMinutes),
+              lastPlayedAt: Value(game.lastPlayedAt),
+            ),
+            target: [db.games.appId, db.games.steamId],
+          ),
+        );
+      }
+    });
+  }
+
+  static String? _buildSyncNotification(
+    int autoCompleted,
+    ({int fetched, int failed}) hltbResult,
+  ) {
+    final parts = <String>[];
+    if (autoCompleted > 0) {
+      final s = autoCompleted == 1 ? 'game' : 'games';
+      parts.add('$autoCompleted $s automatically marked completed based on playtime.');
+    }
+    if (hltbResult.failed > 0) {
+      final s = hltbResult.failed == 1 ? 'game' : 'games';
+      parts.add('HLTB data unavailable for ${hltbResult.failed} $s — tap a game to set hours manually.');
+    }
+    return parts.isEmpty ? null : parts.join('\n');
   }
 }
 

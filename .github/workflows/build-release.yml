@@ -71,11 +71,18 @@ jobs:
       - name: Build Android AAB
         run: flutter build appbundle --release
 
+      - name: Rename Android artifact
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          mv build/app/outputs/bundle/release/app-release.aab \
+             build/app/outputs/bundle/release/BacklogForge-${VERSION}-release.aab
+
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
         with:
           name: backlogforge-android
-          path: build/app/outputs/bundle/release/app-release.aab
+          path: build/app/outputs/bundle/release/BacklogForge-*-release.aab
 
   build-windows:
     needs: test
@@ -103,7 +110,7 @@ jobs:
           $sourceDir  = "${{ github.workspace }}\build\windows\x64\runner\Release"
           $outputDir  = "${{ github.workspace }}\installer-output"
           $iconFile   = "${{ github.workspace }}\windows\runner\resources\app_icon.ico"
-          $filename   = "BacklogForge-Setup-${{ github.ref_name }}"
+          $filename   = "BacklogForge-$version-installer"
           $iscc       = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
           New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
@@ -122,7 +129,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: backlogforge-windows
-          path: installer-output\BacklogForge-Setup-*.exe
+          path: installer-output\BacklogForge-*-installer.exe
 
   build-linux:
     needs: test
@@ -227,6 +234,11 @@ jobs:
             --appdir AppDir \
             --output appimage
 
+      - name: Rename AppImage
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          mv BacklogForge-*.AppImage BacklogForge-${VERSION}.AppImage
+
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
@@ -263,8 +275,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            windows-build/BacklogForge-Setup-*.exe
+            windows-build/BacklogForge-*-installer.exe
             linux-build/BacklogForge-*.AppImage
-            android-build/app-release.aab
+            android-build/BacklogForge-*-release.aab
           draft: true
           generate_release_notes: true

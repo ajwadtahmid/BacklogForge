@@ -64,6 +64,12 @@ class PlayNextState {
 }
 
 class PlayNextNotifier extends Notifier<PlayNextState> {
+  static const int _kPickCount = 5;
+  static const double _kNeglectDecayDays = 90.0;
+  static const double _kMaxNeglectDays = 365.0;
+  static const double _kAgingRatePerYear = 0.05;
+  static const double _kRecencyBoost = 0.5;
+
   // Weight cache — invalidated whenever the backlog's content changes.
   String? _backlogFingerprint;
   Map<int, double> _weightCache = {};
@@ -94,50 +100,47 @@ class PlayNextNotifier extends Notifier<PlayNextState> {
 
   Future<void> spin() async {
     if (state.method == FindMethod.focused) {
-      // First press: load progress. Subsequent presses: swap to the other view.
-      final nextView = !state.spun
-          ? FocusedView.progress
-          : (state.focusedView == FocusedView.progress
-                ? FocusedView.quickest
-                : FocusedView.progress);
-
-      state = state.copyWith(
-        loading: true,
-        spun: false,
-        focusedView: nextView,
-        lockedIds:
-            const {}, // locks don't carry over between deterministic views
-      );
-
-      final auth = await ref.read(authProvider.future);
-      final steamId = auth.steamId ?? '';
-      final backlog = await ref
-          .read(databaseProvider)
-          .gamesDao
-          .getBacklog(steamId);
-      final picks = _pickFocused(backlog, nextView, 5);
-      state = state.copyWith(picks: picks, loading: false, spun: true);
-      return;
+      await _focusedSpin();
+    } else {
+      await _shuffleSpin();
     }
+  }
 
-    // ── Shuffle mode ────────────────────────────────────────────────────────
+  Future<void> _focusedSpin() async {
+    // First press: load progress. Subsequent presses: swap to the other view.
+    final nextView = !state.spun
+        ? FocusedView.progress
+        : (state.focusedView == FocusedView.progress
+              ? FocusedView.quickest
+              : FocusedView.progress);
+
+    state = state.copyWith(
+      loading: true,
+      spun: false,
+      focusedView: nextView,
+      lockedIds: const {}, // locks don't carry over between deterministic views
+    );
+
+    final auth = await ref.read(authProvider.future);
+    final steamId = auth.steamId ?? '';
+    final backlog = await ref.read(databaseProvider).gamesDao.getBacklog(steamId);
+    final picks = _pickFocused(backlog, nextView, _kPickCount);
+    state = state.copyWith(picks: picks, loading: false, spun: true);
+  }
+
+  Future<void> _shuffleSpin() async {
     state = state.copyWith(loading: true, spun: false);
     final auth = await ref.read(authProvider.future);
     final steamId = auth.steamId ?? '';
-    final backlog = await ref
-        .read(databaseProvider)
-        .gamesDao
-        .getBacklog(steamId);
+    final backlog = await ref.read(databaseProvider).gamesDao.getBacklog(steamId);
 
     // Drop lock IDs for games that no longer exist in the backlog (e.g. deleted).
     final backlogIds = {for (final g in backlog) g.id};
     final validLockedIds = state.lockedIds.intersection(backlogIds);
 
     // Preserve valid locked picks; refill all other slots.
-    final lockedPicks = state.picks
-        .where((g) => validLockedIds.contains(g.id))
-        .toList();
-    final slotsNeeded = 5 - lockedPicks.length;
+    final lockedPicks = state.picks.where((g) => validLockedIds.contains(g.id)).toList();
+    final slotsNeeded = _kPickCount - lockedPicks.length;
     final pool = backlog.where((g) => !validLockedIds.contains(g.id)).toList();
     final weights = _getOrBuildWeights(backlog);
     final newPicks = _weightedSample(pool, slotsNeeded, weights);
@@ -237,14 +240,14 @@ class PlayNextNotifier extends Notifier<PlayNextState> {
     for (final g in pool) {
       final daysOwned = now.difference(g.addedAt).inDays.toDouble();
       final hours = g.playtimeMinutes / 60.0;
-      final clampedDays = daysOwned.clamp(0.0, 365.0);
+      final clampedDays = daysOwned.clamp(0.0, _kMaxNeglectDays);
       double score = log(clampedDays + 1) / (hours + 1);
-      final extraYears = ((daysOwned - 365.0) / 365.0).clamp(0.0, 9.0);
-      score += extraYears * 0.05;
-      score += 0.5 * exp(-daysOwned / 90.0);
+      final extraYears = ((daysOwned - _kMaxNeglectDays) / _kMaxNeglectDays).clamp(0.0, 9.0);
+      score += extraYears * _kAgingRatePerYear;
+      score += _kRecencyBoost * exp(-daysOwned / _kNeglectDecayDays);
       final lp = g.lastPlayedAt;
       if (lp != null) {
-        score += 0.5 * exp(-now.difference(lp).inDays.toDouble() / 90.0);
+        score += _kRecencyBoost * exp(-now.difference(lp).inDays.toDouble() / _kNeglectDecayDays);
       }
       result[g.id] = score.clamp(0.01, double.infinity);
     }
@@ -266,7 +269,8 @@ class PlayNextNotifier extends Notifier<PlayNextState> {
     for (int i = 0; i < n && remaining.isNotEmpty; i++) {
       final total = remaining.fold(0.0, (sum, e) => sum + e.weight);
       double pick = rng.nextDouble() * total;
-      int chosen = 0;
+      // Default to last element so floating-point rounding never leaves chosen unset.
+      int chosen = remaining.length - 1;
       for (int j = 0; j < remaining.length; j++) {
         pick -= remaining[j].weight;
         if (pick <= 0) {
