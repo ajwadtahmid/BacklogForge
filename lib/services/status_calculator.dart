@@ -12,7 +12,8 @@ enum CompletionThreshold { essential, extended, completionist }
 GameStatus calculateStatus(Game g, CompletionThreshold t) {
   final target = _resolveTarget(g, t);
 
-  // Auto-complete takes priority over manual overrides.
+  // Auto-complete takes priority over manual overrides so users can't
+  // accidentally keep a game in "backlog" after logging enough hours.
   if (target != null && (g.playtimeMinutes / 60) >= target) {
     return GameStatus.completed;
   }

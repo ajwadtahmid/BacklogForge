@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../constants.dart';
 import '../models/game_search_result.dart';
 import '../providers/search_provider.dart';
 import '../providers/game_actions_provider.dart';
 import '../services/database/app_database.dart';
-import '../widgets/artwork_image.dart';
+import '../widgets/hltb_search_body.dart';
 import '../services/hltb_service.dart';
 
 /// Lets the user search HLTB and apply time-to-beat data to an existing game.
@@ -44,7 +46,7 @@ class _HltbUpdateScreenState extends ConsumerState<HltbUpdateScreen> {
 
   void _onSearchChanged(String query) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 400), () {
+    _debounce = Timer(AppConstants.kSearchDebounce, () {
       ref.read(searchProvider.notifier).search(query);
     });
   }
@@ -52,6 +54,8 @@ class _HltbUpdateScreenState extends ConsumerState<HltbUpdateScreen> {
   Future<void> _applyResult(GameSearchResult result) async {
     if (_applying) return;
     setState(() => _applying = true);
+    // Capture messenger before async gap so the snackbar shows on the parent screen.
+    final messenger = ScaffoldMessenger.of(context);
     try {
       await ref.read(gameActionsProvider).setHltbHours(
             widget.game,
@@ -61,8 +65,8 @@ class _HltbUpdateScreenState extends ConsumerState<HltbUpdateScreen> {
             hltbName: result.name,
           );
       if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
+        context.pop();
+        messenger.showSnackBar(
           SnackBar(content: Text('HLTB data updated for "${widget.game.name}"')),
         );
       }
@@ -84,6 +88,7 @@ class _HltbUpdateScreenState extends ConsumerState<HltbUpdateScreen> {
             child: TextField(
               controller: _searchController,
               onChanged: _onSearchChanged,
+              autofocus: true,
               decoration: InputDecoration(
                 hintText: 'Search HowLongToBeat...',
                 prefixIcon: const Icon(Icons.search),
@@ -92,55 +97,21 @@ class _HltbUpdateScreenState extends ConsumerState<HltbUpdateScreen> {
             ),
           ),
           Expanded(
-            child: searchState.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : searchState.errorMessage != null
-                    ? Center(child: Text(searchState.errorMessage!, textAlign: TextAlign.center))
-                    : searchState.results.isEmpty && _searchController.text.isNotEmpty
-                        ? const Center(child: Text('No results found'))
-                        : searchState.results.isEmpty
-                            ? const Center(child: Text('Search for a game to get started'))
-                            : ListView.builder(
-                                padding: const EdgeInsets.all(12),
-                                itemCount: searchState.results.length,
-                                itemBuilder: (ctx, idx) {
-                                  final result = searchState.results[idx];
-                                  final hasTtb = result.essentialHours != null ||
-                                      result.extendedHours != null ||
-                                      result.completionistHours != null;
-                                  return Card(
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    child: ListTile(
-                                      leading: SizedBox(
-                                        width: 50,
-                                        child: ArtworkImage(
-                                          url: result.artworkUrl,
-                                          width: 50,
-                                        ),
-                                      ),
-                                      title: Text(result.name),
-                                      subtitle: hasTtb
-                                          ? Text(
-                                              'Essential: ${result.essentialHours?.toStringAsFixed(1) ?? "—"}h  |  '
-                                              'Extended: ${result.extendedHours?.toStringAsFixed(1) ?? "—"}h  |  '
-                                              'Completionist: ${result.completionistHours?.toStringAsFixed(1) ?? "—"}h',
-                                              style: Theme.of(context).textTheme.bodySmall,
-                                            )
-                                          : const Text('No HLTB data available'),
-                                      trailing: _applying
-                                          ? const SizedBox(
-                                              width: 40,
-                                              child: CircularProgressIndicator(strokeWidth: 2),
-                                            )
-                                          : IconButton(
-                                              icon: const Icon(Icons.check),
-                                              tooltip: 'Apply this data',
-                                              onPressed: () => _applyResult(result),
-                                            ),
-                                    ),
-                                  );
-                                },
-                              ),
+            child: HltbSearchBody(
+              searchState: searchState,
+              query: _searchController.text,
+              showNoDataLabel: true,
+              trailingBuilder: (result) => _applying
+                  ? const SizedBox(
+                      width: 40,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.check),
+                      tooltip: 'Apply this data',
+                      onPressed: () => _applyResult(result),
+                    ),
+            ),
           ),
         ],
       ),

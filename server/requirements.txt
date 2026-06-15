@@ -1,6 +1,0 @@
-flask
-flask-cors
-flask-limiter
-requests
-gunicorn
-howlongtobeatpy

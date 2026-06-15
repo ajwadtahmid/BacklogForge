@@ -186,6 +186,36 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _hltbAttemptedAtMeta = const VerificationMeta(
+    'hltbAttemptedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> hltbAttemptedAt =
+      GeneratedColumn<DateTime>(
+        'hltb_attempted_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _ratingMeta = const VerificationMeta('rating');
+  @override
+  late final GeneratedColumn<int> rating = GeneratedColumn<int>(
+    'rating',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -204,6 +234,9 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
     hltbName,
     playStyle,
     manualOverride,
+    hltbAttemptedAt,
+    notes,
+    rating,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -342,6 +375,27 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
         ),
       );
     }
+    if (data.containsKey('hltb_attempted_at')) {
+      context.handle(
+        _hltbAttemptedAtMeta,
+        hltbAttemptedAt.isAcceptableOrUnknown(
+          data['hltb_attempted_at']!,
+          _hltbAttemptedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('rating')) {
+      context.handle(
+        _ratingMeta,
+        rating.isAcceptableOrUnknown(data['rating']!, _ratingMeta),
+      );
+    }
     return context;
   }
 
@@ -419,6 +473,18 @@ class $GamesTable extends Games with TableInfo<$GamesTable, Game> {
         DriftSqlType.bool,
         data['${effectivePrefix}manual_override'],
       )!,
+      hltbAttemptedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}hltb_attempted_at'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+      rating: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}rating'],
+      ),
     );
   }
 
@@ -445,6 +511,9 @@ class Game extends DataClass implements Insertable<Game> {
   final String? hltbName;
   final String? playStyle;
   final bool manualOverride;
+  final DateTime? hltbAttemptedAt;
+  final String? notes;
+  final int? rating;
   const Game({
     required this.id,
     required this.steamId,
@@ -462,6 +531,9 @@ class Game extends DataClass implements Insertable<Game> {
     this.hltbName,
     this.playStyle,
     required this.manualOverride,
+    this.hltbAttemptedAt,
+    this.notes,
+    this.rating,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -498,6 +570,15 @@ class Game extends DataClass implements Insertable<Game> {
       map['play_style'] = Variable<String>(playStyle);
     }
     map['manual_override'] = Variable<bool>(manualOverride);
+    if (!nullToAbsent || hltbAttemptedAt != null) {
+      map['hltb_attempted_at'] = Variable<DateTime>(hltbAttemptedAt);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    if (!nullToAbsent || rating != null) {
+      map['rating'] = Variable<int>(rating);
+    }
     return map;
   }
 
@@ -535,6 +616,15 @@ class Game extends DataClass implements Insertable<Game> {
           ? const Value.absent()
           : Value(playStyle),
       manualOverride: Value(manualOverride),
+      hltbAttemptedAt: hltbAttemptedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(hltbAttemptedAt),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+      rating: rating == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rating),
     );
   }
 
@@ -562,6 +652,9 @@ class Game extends DataClass implements Insertable<Game> {
       hltbName: serializer.fromJson<String?>(json['hltbName']),
       playStyle: serializer.fromJson<String?>(json['playStyle']),
       manualOverride: serializer.fromJson<bool>(json['manualOverride']),
+      hltbAttemptedAt: serializer.fromJson<DateTime?>(json['hltbAttemptedAt']),
+      notes: serializer.fromJson<String?>(json['notes']),
+      rating: serializer.fromJson<int?>(json['rating']),
     );
   }
   @override
@@ -584,6 +677,9 @@ class Game extends DataClass implements Insertable<Game> {
       'hltbName': serializer.toJson<String?>(hltbName),
       'playStyle': serializer.toJson<String?>(playStyle),
       'manualOverride': serializer.toJson<bool>(manualOverride),
+      'hltbAttemptedAt': serializer.toJson<DateTime?>(hltbAttemptedAt),
+      'notes': serializer.toJson<String?>(notes),
+      'rating': serializer.toJson<int?>(rating),
     };
   }
 
@@ -604,6 +700,9 @@ class Game extends DataClass implements Insertable<Game> {
     Value<String?> hltbName = const Value.absent(),
     Value<String?> playStyle = const Value.absent(),
     bool? manualOverride,
+    Value<DateTime?> hltbAttemptedAt = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+    Value<int?> rating = const Value.absent(),
   }) => Game(
     id: id ?? this.id,
     steamId: steamId ?? this.steamId,
@@ -627,6 +726,11 @@ class Game extends DataClass implements Insertable<Game> {
     hltbName: hltbName.present ? hltbName.value : this.hltbName,
     playStyle: playStyle.present ? playStyle.value : this.playStyle,
     manualOverride: manualOverride ?? this.manualOverride,
+    hltbAttemptedAt: hltbAttemptedAt.present
+        ? hltbAttemptedAt.value
+        : this.hltbAttemptedAt,
+    notes: notes.present ? notes.value : this.notes,
+    rating: rating.present ? rating.value : this.rating,
   );
   Game copyWithCompanion(GamesCompanion data) {
     return Game(
@@ -662,6 +766,11 @@ class Game extends DataClass implements Insertable<Game> {
       manualOverride: data.manualOverride.present
           ? data.manualOverride.value
           : this.manualOverride,
+      hltbAttemptedAt: data.hltbAttemptedAt.present
+          ? data.hltbAttemptedAt.value
+          : this.hltbAttemptedAt,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      rating: data.rating.present ? data.rating.value : this.rating,
     );
   }
 
@@ -683,7 +792,10 @@ class Game extends DataClass implements Insertable<Game> {
           ..write('hltbImageUrl: $hltbImageUrl, ')
           ..write('hltbName: $hltbName, ')
           ..write('playStyle: $playStyle, ')
-          ..write('manualOverride: $manualOverride')
+          ..write('manualOverride: $manualOverride, ')
+          ..write('hltbAttemptedAt: $hltbAttemptedAt, ')
+          ..write('notes: $notes, ')
+          ..write('rating: $rating')
           ..write(')'))
         .toString();
   }
@@ -706,6 +818,9 @@ class Game extends DataClass implements Insertable<Game> {
     hltbName,
     playStyle,
     manualOverride,
+    hltbAttemptedAt,
+    notes,
+    rating,
   );
   @override
   bool operator ==(Object other) =>
@@ -726,7 +841,10 @@ class Game extends DataClass implements Insertable<Game> {
           other.hltbImageUrl == this.hltbImageUrl &&
           other.hltbName == this.hltbName &&
           other.playStyle == this.playStyle &&
-          other.manualOverride == this.manualOverride);
+          other.manualOverride == this.manualOverride &&
+          other.hltbAttemptedAt == this.hltbAttemptedAt &&
+          other.notes == this.notes &&
+          other.rating == this.rating);
 }
 
 class GamesCompanion extends UpdateCompanion<Game> {
@@ -746,6 +864,9 @@ class GamesCompanion extends UpdateCompanion<Game> {
   final Value<String?> hltbName;
   final Value<String?> playStyle;
   final Value<bool> manualOverride;
+  final Value<DateTime?> hltbAttemptedAt;
+  final Value<String?> notes;
+  final Value<int?> rating;
   const GamesCompanion({
     this.id = const Value.absent(),
     this.steamId = const Value.absent(),
@@ -763,6 +884,9 @@ class GamesCompanion extends UpdateCompanion<Game> {
     this.hltbName = const Value.absent(),
     this.playStyle = const Value.absent(),
     this.manualOverride = const Value.absent(),
+    this.hltbAttemptedAt = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.rating = const Value.absent(),
   });
   GamesCompanion.insert({
     this.id = const Value.absent(),
@@ -781,6 +905,9 @@ class GamesCompanion extends UpdateCompanion<Game> {
     this.hltbName = const Value.absent(),
     this.playStyle = const Value.absent(),
     this.manualOverride = const Value.absent(),
+    this.hltbAttemptedAt = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.rating = const Value.absent(),
   }) : steamId = Value(steamId),
        appId = Value(appId),
        name = Value(name),
@@ -802,6 +929,9 @@ class GamesCompanion extends UpdateCompanion<Game> {
     Expression<String>? hltbName,
     Expression<String>? playStyle,
     Expression<bool>? manualOverride,
+    Expression<DateTime>? hltbAttemptedAt,
+    Expression<String>? notes,
+    Expression<int>? rating,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -820,6 +950,9 @@ class GamesCompanion extends UpdateCompanion<Game> {
       if (hltbName != null) 'hltb_name': hltbName,
       if (playStyle != null) 'play_style': playStyle,
       if (manualOverride != null) 'manual_override': manualOverride,
+      if (hltbAttemptedAt != null) 'hltb_attempted_at': hltbAttemptedAt,
+      if (notes != null) 'notes': notes,
+      if (rating != null) 'rating': rating,
     });
   }
 
@@ -840,6 +973,9 @@ class GamesCompanion extends UpdateCompanion<Game> {
     Value<String?>? hltbName,
     Value<String?>? playStyle,
     Value<bool>? manualOverride,
+    Value<DateTime?>? hltbAttemptedAt,
+    Value<String?>? notes,
+    Value<int?>? rating,
   }) {
     return GamesCompanion(
       id: id ?? this.id,
@@ -858,6 +994,9 @@ class GamesCompanion extends UpdateCompanion<Game> {
       hltbName: hltbName ?? this.hltbName,
       playStyle: playStyle ?? this.playStyle,
       manualOverride: manualOverride ?? this.manualOverride,
+      hltbAttemptedAt: hltbAttemptedAt ?? this.hltbAttemptedAt,
+      notes: notes ?? this.notes,
+      rating: rating ?? this.rating,
     );
   }
 
@@ -912,6 +1051,15 @@ class GamesCompanion extends UpdateCompanion<Game> {
     if (manualOverride.present) {
       map['manual_override'] = Variable<bool>(manualOverride.value);
     }
+    if (hltbAttemptedAt.present) {
+      map['hltb_attempted_at'] = Variable<DateTime>(hltbAttemptedAt.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (rating.present) {
+      map['rating'] = Variable<int>(rating.value);
+    }
     return map;
   }
 
@@ -933,7 +1081,10 @@ class GamesCompanion extends UpdateCompanion<Game> {
           ..write('hltbImageUrl: $hltbImageUrl, ')
           ..write('hltbName: $hltbName, ')
           ..write('playStyle: $playStyle, ')
-          ..write('manualOverride: $manualOverride')
+          ..write('manualOverride: $manualOverride, ')
+          ..write('hltbAttemptedAt: $hltbAttemptedAt, ')
+          ..write('notes: $notes, ')
+          ..write('rating: $rating')
           ..write(')'))
         .toString();
   }
@@ -1015,7 +1166,7 @@ class $AppSettingsTable extends AppSettings
     false,
     type: DriftSqlType.double,
     requiredDuringInsert: false,
-    defaultValue: const Constant(1.0),
+    defaultValue: const Constant(0.0),
   );
   @override
   List<GeneratedColumn> get $columns => [
@@ -1420,6 +1571,9 @@ typedef $$GamesTableCreateCompanionBuilder =
       Value<String?> hltbName,
       Value<String?> playStyle,
       Value<bool> manualOverride,
+      Value<DateTime?> hltbAttemptedAt,
+      Value<String?> notes,
+      Value<int?> rating,
     });
 typedef $$GamesTableUpdateCompanionBuilder =
     GamesCompanion Function({
@@ -1439,6 +1593,9 @@ typedef $$GamesTableUpdateCompanionBuilder =
       Value<String?> hltbName,
       Value<String?> playStyle,
       Value<bool> manualOverride,
+      Value<DateTime?> hltbAttemptedAt,
+      Value<String?> notes,
+      Value<int?> rating,
     });
 
 class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
@@ -1526,6 +1683,21 @@ class $$GamesTableFilterComposer extends Composer<_$AppDatabase, $GamesTable> {
 
   ColumnFilters<bool> get manualOverride => $composableBuilder(
     column: $table.manualOverride,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get hltbAttemptedAt => $composableBuilder(
+    column: $table.hltbAttemptedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rating => $composableBuilder(
+    column: $table.rating,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1618,6 +1790,21 @@ class $$GamesTableOrderingComposer
     column: $table.manualOverride,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get hltbAttemptedAt => $composableBuilder(
+    column: $table.hltbAttemptedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rating => $composableBuilder(
+    column: $table.rating,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$GamesTableAnnotationComposer
@@ -1692,6 +1879,17 @@ class $$GamesTableAnnotationComposer
     column: $table.manualOverride,
     builder: (column) => column,
   );
+
+  GeneratedColumn<DateTime> get hltbAttemptedAt => $composableBuilder(
+    column: $table.hltbAttemptedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<int> get rating =>
+      $composableBuilder(column: $table.rating, builder: (column) => column);
 }
 
 class $$GamesTableTableManager
@@ -1738,6 +1936,9 @@ class $$GamesTableTableManager
                 Value<String?> hltbName = const Value.absent(),
                 Value<String?> playStyle = const Value.absent(),
                 Value<bool> manualOverride = const Value.absent(),
+                Value<DateTime?> hltbAttemptedAt = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<int?> rating = const Value.absent(),
               }) => GamesCompanion(
                 id: id,
                 steamId: steamId,
@@ -1755,6 +1956,9 @@ class $$GamesTableTableManager
                 hltbName: hltbName,
                 playStyle: playStyle,
                 manualOverride: manualOverride,
+                hltbAttemptedAt: hltbAttemptedAt,
+                notes: notes,
+                rating: rating,
               ),
           createCompanionCallback:
               ({
@@ -1774,6 +1978,9 @@ class $$GamesTableTableManager
                 Value<String?> hltbName = const Value.absent(),
                 Value<String?> playStyle = const Value.absent(),
                 Value<bool> manualOverride = const Value.absent(),
+                Value<DateTime?> hltbAttemptedAt = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<int?> rating = const Value.absent(),
               }) => GamesCompanion.insert(
                 id: id,
                 steamId: steamId,
@@ -1791,6 +1998,9 @@ class $$GamesTableTableManager
                 hltbName: hltbName,
                 playStyle: playStyle,
                 manualOverride: manualOverride,
+                hltbAttemptedAt: hltbAttemptedAt,
+                notes: notes,
+                rating: rating,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

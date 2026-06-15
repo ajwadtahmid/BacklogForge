@@ -5,6 +5,8 @@ import 'providers/auth_provider.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/library_screen.dart';
 import 'screens/game_detail_screen.dart';
+import 'screens/global_search_screen.dart';
+import 'screens/hltb_update_screen.dart';
 import 'screens/manual_search_screen.dart';
 import 'services/database/app_database.dart';
 
@@ -32,6 +34,7 @@ class _RouterNotifier extends ChangeNotifier {
 
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _RouterNotifier(ref);
+  ref.onDispose(notifier.dispose);
   return GoRouter(
     refreshListenable: notifier,
     redirect: notifier.redirect,
@@ -49,11 +52,26 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ManualSearchScreen(),
           ),
           GoRoute(
+            path: 'unified-search',
+            builder: (context, state) => const GlobalSearchScreen(),
+          ),
+          GoRoute(
             path: 'game/:id',
             builder: (context, state) {
-              final game = state.extra as Game;
+              final game = state.extra as Game?;
+              if (game == null) return const LibraryScreen();
               return GameDetailScreen(game: game);
             },
+            routes: [
+              GoRoute(
+                path: 'hltb',
+                builder: (context, state) {
+                  final game = state.extra as Game?;
+                  if (game == null) return const LibraryScreen();
+                  return HltbUpdateScreen(game: game);
+                },
+              ),
+            ],
           ),
         ],
       ),

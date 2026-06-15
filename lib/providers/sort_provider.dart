@@ -3,37 +3,100 @@ import '../services/database/games_dao.dart';
 import '../services/database/app_database.dart';
 import 'database_provider.dart';
 import 'auth_provider.dart';
+import 'theme_provider.dart'; // for sharedPrefsProvider
 
-/// Single notifier class reused for both backlog and completed sort modes.
-class SortModeNotifier extends Notifier<SortMode> {
+const _kBacklogSortKey = 'backlog_sort';
+const _kCompletedSortKey = 'completed_sort';
+const _kBacklogFilterKey = 'backlog_length_filter';
+const _kBacklogExtraFilterKey = 'backlog_extra_filter';
+const _kCompletedExtraFilterKey = 'completed_extra_filter';
+
+/// Generic Riverpod notifier that persists an enum value to SharedPreferences.
+class _PrefsEnumNotifier<T extends Enum> extends Notifier<T> {
+  _PrefsEnumNotifier(this._key, this._values, this._default);
+
+  final String _key;
+  final List<T> _values;
+  final T _default;
+
   @override
-  SortMode build() => SortMode.alphabetical;
+  T build() {
+    final raw = ref.read(sharedPrefsProvider).getString(_key);
+    return _values.asNameMap()[raw] ?? _default;
+  }
 
-  void setSortMode(SortMode mode) => state = mode;
+  void set(T value) {
+    state = value;
+    ref.read(sharedPrefsProvider).setString(_key, value.name);
+  }
+}
+
+class _BacklogSortNotifier extends _PrefsEnumNotifier<SortMode> {
+  _BacklogSortNotifier()
+      : super(_kBacklogSortKey, SortMode.values, SortMode.alphabetical);
+}
+
+class _CompletedSortNotifier extends _PrefsEnumNotifier<SortMode> {
+  _CompletedSortNotifier()
+      : super(_kCompletedSortKey, SortMode.values, SortMode.alphabetical);
+}
+
+class _BacklogFilterNotifier extends _PrefsEnumNotifier<LengthFilter> {
+  _BacklogFilterNotifier()
+      : super(_kBacklogFilterKey, LengthFilter.values, LengthFilter.any);
+}
+
+class _BacklogExtraFilterNotifier extends _PrefsEnumNotifier<ExtraFilter> {
+  _BacklogExtraFilterNotifier()
+      : super(_kBacklogExtraFilterKey, ExtraFilter.values, ExtraFilter.any);
+}
+
+class _CompletedExtraFilterNotifier extends _PrefsEnumNotifier<ExtraFilter> {
+  _CompletedExtraFilterNotifier()
+      : super(_kCompletedExtraFilterKey, ExtraFilter.values, ExtraFilter.any);
 }
 
 final backlogSortModeProvider =
-    NotifierProvider<SortModeNotifier, SortMode>(SortModeNotifier.new);
+    NotifierProvider<_BacklogSortNotifier, SortMode>(_BacklogSortNotifier.new);
 
-final completedSortModeProvider =
-    NotifierProvider<SortModeNotifier, SortMode>(SortModeNotifier.new);
+final completedSortModeProvider = NotifierProvider<_CompletedSortNotifier, SortMode>(
+    _CompletedSortNotifier.new);
 
-/// Provides the backlog list sorted by the user's chosen [SortMode].
-final backlogSortedProvider = FutureProvider<List<Game>>((ref) async {
-  final auth = await ref.watch(authProvider.future);
-  final steamId = auth.steamId;
-  if (steamId == null) return [];
+final backlogFilterProvider = NotifierProvider<_BacklogFilterNotifier, LengthFilter>(
+    _BacklogFilterNotifier.new);
+
+final backlogExtraFilterProvider = NotifierProvider<_BacklogExtraFilterNotifier, ExtraFilter>(
+    _BacklogExtraFilterNotifier.new);
+
+final completedExtraFilterProvider =
+    NotifierProvider<_CompletedExtraFilterNotifier, ExtraFilter>(
+        _CompletedExtraFilterNotifier.new);
+
+/// Reactive backlog list. Resubscribes to a new Drift watch stream whenever
+/// [backlogSortModeProvider] or [backlogFilterProvider] changes.
+final backlogSortedProvider = StreamProvider<List<Game>>((ref) {
+  final steamId = ref.watch(authProvider).asData?.value.steamId;
+  if (steamId == null) return Stream.value([]);
   final sortMode = ref.watch(backlogSortModeProvider);
-  final dao = ref.watch(databaseProvider).gamesDao;
-  return dao.backlogSorted(sortMode, steamId);
+  final filter = ref.watch(backlogFilterProvider);
+  final extraFilter = ref.watch(backlogExtraFilterProvider);
+  return ref.watch(databaseProvider).gamesDao.watchBacklogSorted(
+      sortMode, steamId, filter: filter, extraFilter: extraFilter);
 });
 
-/// Provides the completed list sorted by the user's chosen [SortMode].
-final completedSortedProvider = FutureProvider<List<Game>>((ref) async {
-  final auth = await ref.watch(authProvider.future);
-  final steamId = auth.steamId;
-  if (steamId == null) return [];
+/// Reactive completed list. Resubscribes whenever [completedSortModeProvider] changes.
+final completedSortedProvider = StreamProvider<List<Game>>((ref) {
+  final steamId = ref.watch(authProvider).asData?.value.steamId;
+  if (steamId == null) return Stream.value([]);
   final sortMode = ref.watch(completedSortModeProvider);
-  final dao = ref.watch(databaseProvider).gamesDao;
-  return dao.completedSorted(sortMode, steamId);
+  final extraFilter = ref.watch(completedExtraFilterProvider);
+  return ref.watch(databaseProvider).gamesDao.watchCompletedSorted(
+      sortMode, steamId, extraFilter: extraFilter);
+});
+
+/// All games across every status — used by unified search.
+final allGamesProvider = StreamProvider<List<Game>>((ref) {
+  final steamId = ref.watch(authProvider).asData?.value.steamId;
+  if (steamId == null) return Stream.value([]);
+  return ref.watch(databaseProvider).gamesDao.watchAllGames(steamId);
 });

@@ -24,21 +24,29 @@ class SteamAuthService {
   }
 
   /// Waits for Steam's redirect on the server started by [buildLoginUrl].
+  /// Skips any browser prefetch / favicon requests until the real /auth arrives.
   Future<Uri> awaitRedirect() async {
     final server = _server!;
     _server = null;
     try {
-      final request = await server.first;
-      final redirectUri = request.requestedUri;
-      request.response
-        ..headers.contentType = ContentType.html
-        ..write(
-          '<html><body style="font-family:sans-serif;text-align:center;'
-          'padding:40px"><h2>Signed in!</h2>'
-          '<p>You can close this tab.</p></body></html>',
-        );
-      await request.response.close();
-      return redirectUri;
+      await for (final request in server) {
+        if (request.uri.path != '/auth') {
+          request.response.statusCode = HttpStatus.notFound;
+          await request.response.close();
+          continue;
+        }
+        final redirectUri = request.requestedUri;
+        request.response
+          ..headers.contentType = ContentType.html
+          ..write(
+            '<html><body style="font-family:sans-serif;text-align:center;'
+            'padding:40px"><h2>Signed in!</h2>'
+            '<p>You can close this tab.</p></body></html>',
+          );
+        await request.response.close();
+        return redirectUri;
+      }
+      throw StateError('Sign-in server closed before receiving Steam redirect');
     } finally {
       await server.close(force: true);
     }
@@ -54,7 +62,9 @@ class SteamAuthService {
     // Ask Steam to confirm the signed response is authentic.
     final params = Map<String, String>.from(redirect.queryParameters);
     params['openid.mode'] = 'check_authentication';
-    final res = await http.post(Uri.parse(_steamLogin), body: params);
+    final res = await http
+        .post(Uri.parse(_steamLogin), body: params)
+        .timeout(const Duration(seconds: 15));
     if (res.statusCode != 200 || !res.body.contains('is_valid:true')) return null;
 
     return claimedId.substring(prefix.length);

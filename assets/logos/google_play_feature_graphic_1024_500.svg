@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  BacklogForge — Play Store Feature Graphic v1 (Hero/Centered)
+  Canvas: 1024 × 500  (required dimensions)
+  Colors: Dark purple-black gradient · Purple #4A2FD0 · White #FFFFFF
+
+  Layout:
+    Left  (~0–480):  Flame logo with decorative rings
+    Right (~500–990): App name, tagline, feature pills
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 500" width="1024" height="500"
+     role="img" aria-label="BacklogForge — Play Store feature graphic">
+  <defs>
+    <!-- Main background gradient (dark purple-black top-left → slightly lighter bottom-right) -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#0D0917"/>
+      <stop offset="55%"  stop-color="#110D1E"/>
+      <stop offset="100%" stop-color="#16102A"/>
+    </linearGradient>
+
+    <!-- Radial glow behind the logo -->
+    <radialGradient id="logo-glow" cx="25%" cy="50%" r="42%">
+      <stop offset="0%"   stop-color="#4A2FD0" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#0D0917" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Soft vignette on the right edge -->
+    <linearGradient id="vignette" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="55%"  stop-color="#0D0917" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#0D0917" stop-opacity="0.15"/>
+    </linearGradient>
+
+    <!-- Outer flame gradient (matches icon exactly) -->
+    <linearGradient id="outerFlame" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%"   stop-color="#4A2FD0"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
+    </linearGradient>
+
+    <!-- Inner flame gradient (matches icon exactly) -->
+    <linearGradient id="innerFlame" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%"   stop-color="#7C5EF8"/>
+      <stop offset="100%" stop-color="#EDE9FE"/>
+    </linearGradient>
+
+    <!-- Glow filter -->
+    <filter id="glow1">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- ── Background ─────────────────────────────────────────────────────── -->
+  <rect width="1024" height="500" fill="url(#bg)"/>
+  <rect width="1024" height="500" fill="url(#logo-glow)"/>
+  <rect width="1024" height="500" fill="url(#vignette)"/>
+
+  <!-- ── Decorative rings around logo ────────────────────────────────────── -->
+  <circle cx="248" cy="250" r="120" fill="none" stroke="#A78BFA" stroke-width="1"   opacity="0.14"/>
+  <circle cx="248" cy="250" r="145" fill="none" stroke="#A78BFA" stroke-width="0.6" opacity="0.08"/>
+  <circle cx="248" cy="250" r="170" fill="none" stroke="#A78BFA" stroke-width="0.5" opacity="0.05"/>
+
+  <!--
+    ── Logo: exact icon_1024.svg geometry (viewBox 0 0 512 512), scaled to 39% and centered at (248, 250)
+       x_offset = 248 - 256×0.39 = 148.16
+       y_offset = 250 - 256×0.39 = 150.16
+  -->
+  <g transform="translate(148.16, 150.16) scale(0.39)" filter="url(#glow1)">
+    <!-- Outer flame -->
+    <path d="
+      M 256 100
+      C 256 145, 365 205, 362 272
+      C 358 342, 316 392, 256 392
+      C 196 392, 154 342, 150 272
+      C 147 205, 256 145, 256 100
+      Z
+    " fill="url(#outerFlame)"/>
+
+    <!-- Inner flame -->
+    <path d="
+      M 256 175
+      C 256 208, 312 248, 310 296
+      C 308 338, 288 368, 256 370
+      C 224 368, 204 338, 202 296
+      C 200 248, 256 208, 256 175
+      Z
+    " fill="url(#innerFlame)" opacity="0.65"/>
+  </g>
+
+  <!-- ── Subtle vertical purple divider ───────────────────────────────────── -->
+  <line x1="490" y1="60" x2="490" y2="440"
+        stroke="#A78BFA" stroke-width="0.8" opacity="0.20"/>
+
+  <!-- ════════════════════════════════════════════════════════════════════ -->
+  <!-- TEXT BLOCK — right section                                           -->
+  <!-- ════════════════════════════════════════════════════════════════════ -->
+
+  <!-- App name -->
+  <text x="525" y="175"
+        font-family="'Noto Sans', 'Trebuchet MS', Arial, sans-serif"
+        font-size="56" font-weight="900" letter-spacing="0"
+        fill="#FFFFFF">BACKLOGFORGE</text>
+
+  <!-- Purple rule under title -->
+  <rect x="525" y="190" width="310" height="2.5" rx="1" fill="#A78BFA" opacity="0.90"/>
+
+  <!-- Tagline line 1 -->
+  <text x="525" y="245"
+        font-family="'Open Sans', 'Trebuchet MS', Helvetica, Arial, sans-serif"
+        font-size="26" font-weight="300" letter-spacing="0.3"
+        fill="#FFFFFF">Conquer your backlog.</text>
+
+  <!-- Tagline line 2 -->
+  <text x="525" y="280"
+        font-family="'Open Sans', 'Trebuchet MS', Helvetica, Arial, sans-serif"
+        font-size="26" font-weight="300" letter-spacing="0.3"
+        fill="#A78BFA">One game at a time.</text>
+
+  <!-- Feature pills -->
+  <!-- Steam Sync pill -->
+  <rect x="525" y="320" width="115" height="32" rx="16"
+        fill="none" stroke="#A78BFA" stroke-width="1.3"/>
+  <text x="582" y="342"
+        font-family="'Open Sans', Arial, sans-serif"
+        font-size="13" font-weight="500" fill="#A78BFA" text-anchor="middle">OFFLINE FIRST</text>
+
+  <!-- Track Progress pill -->
+  <rect x="650" y="320" width="148" height="32" rx="16"
+        fill="none" stroke="#A78BFA" stroke-width="1.3"/>
+  <text x="724" y="342"
+        font-family="'Open Sans', Arial, sans-serif"
+        font-size="13" font-weight="500" fill="#A78BFA" text-anchor="middle">TRACK PROGRESS</text>
+
+  <!-- HLTB Times pill -->
+  <rect x="808" y="320" width="120" height="32" rx="16"
+        fill="none" stroke="#A78BFA" stroke-width="1.3"/>
+  <text x="868" y="342"
+        font-family="'Open Sans', Arial, sans-serif"
+        font-size="13" font-weight="500" fill="#A78BFA" text-anchor="middle">HLTB TIMES</text>
+</svg>

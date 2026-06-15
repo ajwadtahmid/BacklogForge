@@ -1,30 +1,14 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
 import '../services/database/app_database.dart';
+import '../services/hltb_sync_service.dart';
 import '../services/steam_service.dart';
+import '../services/sync_exception.dart';
 import '../services/app_logger.dart';
 import '../models/steam_game.dart';
 import 'database_provider.dart';
 import 'auth_provider.dart';
-import 'provider_invalidation.dart';
-
-/// Provides the current user's backlog (backlog + playing) games.
-final backlogProvider = FutureProvider<List<Game>>((ref) async {
-  final auth = await ref.watch(authProvider.future);
-  final steamId = auth.steamId;
-  if (steamId == null) return [];
-  final db = ref.watch(databaseProvider);
-  return db.gamesDao.getBacklog(steamId);
-});
-
-/// Provides the current user's completed games.
-final completedProvider = FutureProvider<List<Game>>((ref) async {
-  final auth = await ref.watch(authProvider.future);
-  final steamId = auth.steamId;
-  if (steamId == null) return [];
-  final db = ref.watch(databaseProvider);
-  return db.gamesDao.getCompleted(steamId);
-});
 
 enum SyncStatus { idle, syncing, error }
 
@@ -44,21 +28,23 @@ class SyncState {
   });
 }
 
-/// Maps raw exceptions from the sync pipeline to user-friendly messages.
+/// Maps typed [SyncException]s (and unknown errors) to user-friendly messages.
 String _friendlySyncError(Object e) {
-  final raw = e.toString();
-  if (raw.contains('profile_private')) {
+  if (e is ProfilePrivateException) {
     return 'Steam profile is private — make it public to sync.';
   }
-  if (raw.contains('steam_api_error') || raw.contains('steam_api_timeout')) {
+  if (e is SteamApiException) {
     return 'Could not reach Steam. Please try again later.';
   }
-  if (raw.contains('Not signed in')) return 'You are not signed in.';
-  if (raw.contains('TimeoutException')) {
+  if (e is NotSignedInException) return 'You are not signed in.';
+  if (e is ServerTimeoutException) {
     return 'The server took too long to respond — it may be waking up. Please try again in a moment.';
   }
-  if (raw.contains('SocketException') || raw.contains('network')) {
+  if (e is NetworkException) {
     return 'No internet connection. Please check your network.';
+  }
+  if (e is HltbSearchException || e is HltbLookupException) {
+    return 'Could not reach the HLTB server. Please try again later.';
   }
   return 'Sync failed. Please try again.';
 }
@@ -70,6 +56,8 @@ final syncStateProvider =
 /// missing HLTB data, then recalculates completion statuses.
 class SyncNotifier extends Notifier<SyncState> {
   final _steamService = SteamService();
+  final _hltbSync = HltbSyncService();
+  Timer? _errorClearTimer;
 
   @override
   SyncState build() => const SyncState();
@@ -81,7 +69,7 @@ class SyncNotifier extends Notifier<SyncState> {
     try {
       final auth = await ref.read(authProvider.future);
       final steamId = auth.steamId;
-      if (steamId == null) throw Exception('Not signed in');
+      if (steamId == null) throw const NotSignedInException();
 
       final db = ref.read(databaseProvider);
       final steamGames = await _steamService.getOwnedGames(steamId);
@@ -89,7 +77,8 @@ class SyncNotifier extends Notifier<SyncState> {
       await _upsertSteamGames(db, steamGames, steamId);
 
       final allGames = await db.gamesDao.getAllGames(steamId);
-      final hltbResult = await db.gamesDao.fetchAllTimeToBeat(
+      final hltbResult = await _hltbSync.fetchAllTimeToBeat(
+        db.gamesDao,
         allGames,
         onProgress: (current, total) {
           state = SyncState(
@@ -103,8 +92,6 @@ class SyncNotifier extends Notifier<SyncState> {
       // Always recalculate — status correctness matters more than skipping a
       // cheap pass. The recalculator already diffs and skips unchanged rows.
       final autoCompleted = await db.gamesDao.recalculateAllStatuses(steamId);
-      invalidateLibraryProviders(ref);
-
       state = SyncState(notification: _buildSyncNotification(autoCompleted, hltbResult));
     } catch (e, st) {
       AppLogger.instance.error('Sync failed', e, st);
@@ -112,6 +99,12 @@ class SyncNotifier extends Notifier<SyncState> {
         status: SyncStatus.error,
         errorMessage: _friendlySyncError(e),
       );
+      // Auto-clear after 10 s so the error doesn't persist indefinitely in Settings.
+      // Cancel any previous timer so rapid re-sync failures don't clear prematurely.
+      _errorClearTimer?.cancel();
+      _errorClearTimer = Timer(const Duration(seconds: 10), () {
+        if (state.status == SyncStatus.error) state = const SyncState();
+      });
     }
   }
 
@@ -162,11 +155,24 @@ class SyncNotifier extends Notifier<SyncState> {
   }
 }
 
+/// Fires a background sync every 2 hours while the app is running and the user
+/// is signed in. Watch this provider in the root widget so the timer lives for
+/// the full app lifetime. The SyncNotifier already guards against concurrent syncs.
+final backgroundSyncProvider = Provider<void>((ref) {
+  final timer = Timer.periodic(const Duration(hours: 2), (_) {
+    final auth = ref.read(authProvider).asData?.value;
+    if (auth == null || auth.steamId == AuthNotifier.guestSteamId) return;
+    if (ref.read(syncStateProvider).status == SyncStatus.syncing) return;
+    ref.read(syncStateProvider.notifier).sync();
+  });
+  ref.onDispose(timer.cancel);
+});
+
 /// Triggers an automatic sync on first launch if the local DB is empty for this user.
 final initialSyncProvider = FutureProvider<void>((ref) async {
   final auth = await ref.watch(authProvider.future);
   final steamId = auth.steamId;
-  if (steamId == null) return;
+  if (steamId == null || steamId == AuthNotifier.guestSteamId) return;
   final db = ref.watch(databaseProvider);
   final games = await db.gamesDao.getAllGames(steamId);
   if (games.isEmpty) {

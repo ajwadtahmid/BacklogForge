@@ -11,11 +11,27 @@ import 'stats_dao.dart';
 
 part 'app_database.g.dart';
 
-const int schemaVersionNumber = 9;
+// Schema version history:
+//   1 — initial schema
+//   2 — replaced 'auth' table with AppSettings
+//   3 — renamed rushed_hours → essential_hours, casually_hours → extended_hours
+//   4 — full table rebuild (column additions required drop/recreate)
+//   5 — added last_played_at to Games
+//   6 — added hltb_image_url to Games
+//   7 — added play_style to Games
+//   8 — added daily_budget_hours to AppSettings
+//   9 — added hltb_name to Games
+//  10 — added hltb_attempted_at to Games
+//  11 — added notes and rating to Games
+//  12 — daily_budget_hours default changed from 1.0 to 0.0 (0 = no budget set)
+const int schemaVersionNumber = 12;
 
 @DriftDatabase(tables: [Games, AppSettings], daos: [GamesDao, SettingsDao, StatsDao])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_open());
+
+  /// In-memory database for unit tests. Pass [NativeDatabase.memory()].
+  AppDatabase.forTesting(super.e);
 
   @override
   int get schemaVersion => schemaVersionNumber;
@@ -58,6 +74,15 @@ class AppDatabase extends _$AppDatabase {
       if (fromVersion < 9) {
         await m.addColumn(games, games.hltbName);
       }
+      if (fromVersion < 10) {
+        await m.addColumn(games, games.hltbAttemptedAt);
+      }
+      if (fromVersion < 11) {
+        await m.addColumn(games, games.notes);
+        await m.addColumn(games, games.rating);
+      }
+      // v12: no structural changes — daily_budget_hours column default changed
+      // in Drift layer only. Existing rows keep their stored value.
     },
   );
 

@@ -35,13 +35,12 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
   @override
   Future<AuthState> build() async {
     try {
-      /// Loads the user's persisted Steam ID from secure storage; returns signed-out state if not found.
       final steamId = await _secureStorage.read(key: _steamIdKey);
       return steamId != null
           ? AuthState.signedIn(steamId)
           : const AuthState.signedOut();
     } catch (e) {
-      /// Secure storage may fail during cipher migration on first launch; default to signed-out
+      // Secure storage may fail during cipher migration on first launch.
       return const AuthState.signedOut();
     }
   }

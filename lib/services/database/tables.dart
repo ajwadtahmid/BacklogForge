@@ -23,14 +23,18 @@ class Games extends Table {
   TextColumn get playStyle => text().nullable()();
   BoolColumn get manualOverride =>
       boolean().withDefault(const Constant(false))();
+  // Stamped every time a HLTB lookup is attempted (success or fail).
+  // Games attempted within kHltbRetryWindow are skipped on subsequent syncs.
+  DateTimeColumn get hltbAttemptedAt => dateTime().nullable()();
+  TextColumn get notes => text().nullable()();
+  // Personal rating 1–10; null = not rated.
+  IntColumn get rating => integer().nullable()();
 
   @override
   List<Set<Column>> get uniqueKeys => [
         {steamId, appId},
       ];
 }
-
-
 
 class AppSettings extends Table {
   TextColumn get steamId => text()();
@@ -41,7 +45,7 @@ class AppSettings extends Table {
       boolean().withDefault(const Constant(true))();
   TextColumn get theme => text().withDefault(const Constant('dark'))();
   RealColumn get dailyBudgetHours =>
-      real().withDefault(const Constant(1.0))();
+      real().withDefault(const Constant(0.0))();
 
   @override
   Set<Column>? get primaryKey => {steamId};

@@ -2,8 +2,11 @@ import '../services/database/app_database.dart';
 import 'steam_game.dart';
 import 'play_style.dart';
 
-/// Returns target hours for [game] under [style], falling back through the
-/// available estimates if the preferred one is missing.
+/// Returns target hours for [game] under [style].
+/// Intentionally no cross-style fallback for `essential` — used by the UI
+/// progress bar where showing "no data" is preferable to silently using a
+/// longer estimate. `_resolveTarget` in status_calculator uses a full fallback
+/// chain for auto-complete so it never misses a completable game.
 double? resolveTargetHours(Game game, PlayStyle style) => switch (style) {
       PlayStyle.extended => game.extendedHours ?? game.essentialHours,
       PlayStyle.completionist =>
@@ -12,20 +15,17 @@ double? resolveTargetHours(Game game, PlayStyle style) => switch (style) {
     };
 
 extension GameArtwork on Game {
-  /// Returns the display artwork URL for this game.
-  /// Steam games use the Steam CDN header image; manually added games use
-  /// the HLTB image stored at insert time, falling back to a placeholder.
-  String get artworkUrl {
+  /// Returns the display artwork URL for this game, or null for manual games
+  /// with no HLTB image (ArtworkImage renders the bundled placeholder on null).
+  String? get artworkUrl {
     if (appId > 0) return steamArtworkUrl(appId);
-    return hltbImageUrl ?? '/assets/artwork/no_artwork.png';
+    return hltbImageUrl;
   }
 
-  /// Hours target for the progress bar, resolved from the game's stored play style.
-  /// Falls back through the chain if the preferred estimate is missing.
-  double? get targetHours => resolveTargetHours(this, playStyle.toPlayStyle);
-
-  /// Fallback target hours using priority: essential > extended > completionist.
-  /// Used for display when playStyle-selected hours are unavailable.
-  double? get targetHoursWithFallback =>
-      essentialHours ?? extendedHours ?? completionistHours;
+  /// Play-style-resolved target hours, falling back to any available estimate.
+  double? get displayTargetHours =>
+      resolveTargetHours(this, playStyle.toPlayStyle) ??
+      essentialHours ??
+      extendedHours ??
+      completionistHours;
 }

@@ -2,21 +2,44 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../providers/library_provider.dart';
-import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
-import 'onboarding_screen.dart';
+import '../util/platform.dart';
 import 'tabs/backlog_tab.dart';
 import 'tabs/completed_tab.dart';
 import 'tabs/play_next_tab.dart';
+import 'tabs/settings_tab.dart';
 import 'tabs/stats_tab.dart';
+import '../util/ui_tokens.dart';
 
-class LibraryScreen extends ConsumerWidget {
+class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
+}
+
+class _LibraryScreenState extends ConsumerState<LibraryScreen> {
+  int _selectedIndex = 0;
+
+  static const _destinations = [
+    (label: 'Backlog',   icon: Icons.inbox_outlined,         selectedIcon: Icons.inbox),
+    (label: 'Completed', icon: Icons.check_circle_outline,   selectedIcon: Icons.check_circle),
+    (label: 'Play Next', icon: Icons.play_arrow_outlined,    selectedIcon: Icons.play_arrow),
+    (label: 'Stats',     icon: Icons.bar_chart_outlined,     selectedIcon: Icons.bar_chart),
+    (label: 'Settings',  icon: Icons.settings_outlined,      selectedIcon: Icons.settings),
+  ];
+
+  static const _views = [
+    BacklogTab(),
+    CompletedTab(),
+    PlayNextTab(),
+    StatsTab(),
+    SettingsTab(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
     ref.watch(initialSyncProvider);
-    final syncState = ref.watch(syncStateProvider);
 
     ref.listen<SyncState>(syncStateProvider, (previous, next) {
       if (previous?.status == SyncStatus.syncing &&
@@ -31,120 +54,116 @@ class LibraryScreen extends ConsumerWidget {
       }
     });
 
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('BacklogForge'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.add),
-              tooltip: 'Add game manually',
-              onPressed: () => context.push('/library/search'),
-            ),
-            IconButton(
-              icon: Icon(
-                Theme.of(context).brightness == Brightness.dark
-                    ? Icons.light_mode
-                    : Icons.dark_mode,
-              ),
-              tooltip: 'Toggle theme',
-              onPressed: () async {
-                final currentMode =
-                    Theme.of(context).brightness == Brightness.dark
-                    ? ThemeMode.light
-                    : ThemeMode.dark;
-                await ref
-                    .read(themeProvider.notifier)
-                    .setTheme(currentMode);
-              },
-            ),
-            if (syncState.status == SyncStatus.syncing)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: Text(
-                        syncState.hltbTotal != null
-                            ? '${syncState.hltbCurrent}/${syncState.hltbTotal}'
-                            : 'Fetching library…',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
+    final isMobileOS = context.isMobileOS;
+    final isDesktop = !isMobileOS;
+    final navPosition = ref.watch(navigationPositionProvider);
+    final showTopNav = isDesktop && navPosition == NavigationPosition.top;
+    final showRailLeft = isDesktop && navPosition == NavigationPosition.left;
+    final showRailRight = isDesktop && navPosition == NavigationPosition.right;
+    final body = IndexedStack(index: _selectedIndex, children: _views);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('BacklogForge'),
+        actions: [
+          if (showTopNav)
+            ..._destinations.asMap().entries.map(
+                  (e) => Padding(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 8, horizontal: 2),
+                    child: _TopNavItem(
+                      label: e.value.label,
+                      isSelected: _selectedIndex == e.key,
+                      onTap: () =>
+                          setState(() => _selectedIndex = e.key),
                     ),
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ],
+                  ),
                 ),
-              )
-            else
-              Consumer(
-                builder: (context, ref, _) {
-                  final authAsync = ref.watch(authProvider);
-                  final isGuest = authAsync.whenOrNull(
-                        data: (auth) =>
-                            auth.steamId == AuthNotifier.guestSteamId,
-                      ) ??
-                      false;
-                  return Tooltip(
-                    message: isGuest
-                        ? 'Sign in with Steam to sync your library'
-                        : (syncState.errorMessage ?? 'Sync with Steam'),
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.refresh,
-                        color: syncState.status == SyncStatus.error
-                            ? Colors.red
-                            : null,
-                      ),
-                      onPressed: isGuest
-                          ? null
-                          : () =>
-                              ref.read(syncStateProvider.notifier).sync(),
-                    ),
-                  );
-                },
-              ),
-            Consumer(
-              builder: (context, ref, _) {
-                final authAsync = ref.watch(authProvider);
-                return authAsync.whenOrNull(
-                  data: (auth) {
-                    final isGuest = auth.steamId == AuthNotifier.guestSteamId;
-                    return IconButton(
-                      icon: Icon(isGuest ? Icons.login : Icons.logout),
-                      tooltip: isGuest ? 'Sign in with Steam' : 'Sign out',
-                      onPressed: isGuest
-                          ? () => showModalBottomSheet(
-                                context: context,
-                                builder: (_) => const SignInSheet(),
-                              )
-                          : () => ref.read(authProvider.notifier).signOut(),
-                    );
-                  },
-                ) ?? IconButton(
-                  icon: const Icon(Icons.logout),
-                  onPressed: null,
-                );
-              },
-            ),
-          ],
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Backlog'),
-              Tab(text: 'Completed'),
-              Tab(text: 'Play Next'),
-              Tab(text: 'Stats'),
-            ],
+          if (showTopNav) const SizedBox(width: 4),
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: 'Search all games',
+            onPressed: () => context.push('/library/unified-search'),
           ),
+          const SizedBox(width: 4),
+        ],
+      ),
+      body: Row(
+        children: [
+          if (showRailLeft)
+            _buildRail(),
+          Expanded(child: body),
+          if (showRailRight)
+            _buildRail(),
+        ],
+      ),
+      bottomNavigationBar: !isDesktop
+          ? NavigationBar(
+              selectedIndex: _selectedIndex,
+              onDestinationSelected: (i) =>
+                  setState(() => _selectedIndex = i),
+              destinations: _destinations
+                  .map((d) => NavigationDestination(
+                        icon: Icon(d.icon),
+                        selectedIcon: Icon(d.selectedIcon),
+                        label: d.label,
+                      ))
+                  .toList(),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildRail() => NavigationRail(
+        selectedIndex: _selectedIndex,
+        labelType: NavigationRailLabelType.all,
+        onDestinationSelected: (i) =>
+            setState(() => _selectedIndex = i),
+        destinations: _destinations
+            .map((d) => NavigationRailDestination(
+                  icon: Icon(d.icon),
+                  selectedIcon: Icon(d.selectedIcon),
+                  label: Text(d.label),
+                ))
+            .toList(),
+      );
+}
+
+class _TopNavItem extends StatelessWidget {
+  const _TopNavItem({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: AnimatedContainer(
+        duration: kAnimFast,
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? cs.primary.withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
         ),
-        body: const TabBarView(
-          children: [BacklogTab(), CompletedTab(), PlayNextTab(), StatsTab()],
+        child: Text(
+          label,
+          style: tt.labelLarge?.copyWith(
+            color: isSelected ? cs.primary : cs.onSurfaceVariant,
+            fontWeight:
+                isSelected ? FontWeight.w600 : FontWeight.w400,
+          ),
         ),
       ),
     );

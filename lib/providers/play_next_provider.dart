@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../constants.dart';
 import '../services/database/app_database.dart';
 import '../models/game.dart';
 import 'database_provider.dart';
@@ -30,6 +31,9 @@ class PlayNextState {
     this.loading = false,
     this.spun = false,
     this.lockedIds = const {},
+    this.scoreReasons = const {},
+    this.progressThreshold = 0.50,
+    this.focusedDisplayCount = AppConstants.kPickCount,
   });
   final List<Game> picks;
   final FindMethod method;
@@ -46,6 +50,16 @@ class PlayNextState {
   /// IDs of picks the user has locked — preserved across shuffle respins.
   final Set<int> lockedIds;
 
+  /// Human-readable score explanation per game ID (shuffle mode only).
+  final Map<int, String> scoreReasons;
+
+  /// Minimum completion ratio (0.50–0.95) for the "Almost Done" view.
+  final double progressThreshold;
+
+  /// How many focused picks to display — grows by [AppConstants.kPickCount]
+  /// each time the user taps "Load more".
+  final int focusedDisplayCount;
+
   PlayNextState copyWith({
     List<Game>? picks,
     FindMethod? method,
@@ -53,6 +67,9 @@ class PlayNextState {
     bool? loading,
     bool? spun,
     Set<int>? lockedIds,
+    Map<int, String>? scoreReasons,
+    double? progressThreshold,
+    int? focusedDisplayCount,
   }) => PlayNextState(
     picks: picks ?? this.picks,
     method: method ?? this.method,
@@ -60,18 +77,27 @@ class PlayNextState {
     loading: loading ?? this.loading,
     spun: spun ?? this.spun,
     lockedIds: lockedIds ?? this.lockedIds,
+    scoreReasons: scoreReasons ?? this.scoreReasons,
+    progressThreshold: progressThreshold ?? this.progressThreshold,
+    focusedDisplayCount: focusedDisplayCount ?? this.focusedDisplayCount,
   );
 }
 
 class PlayNextNotifier extends Notifier<PlayNextState> {
-  static const int _kPickCount = 5;
+  /// Games played within this window receive a decaying neglect penalty.
   static const double _kNeglectDecayDays = 90.0;
+
+  /// Neglect score is capped at this many days to prevent runaway weighting.
   static const double _kMaxNeglectDays = 365.0;
+
+  /// Extra weight added per full year owned beyond the first (capped at 9 years).
   static const double _kAgingRatePerYear = 0.05;
+
+  /// Flat boost applied to games added within the last [_kNeglectDecayDays] days.
   static const double _kRecencyBoost = 0.5;
 
   // Weight cache — invalidated whenever the backlog's content changes.
-  String? _backlogFingerprint;
+  int? _backlogFingerprint;
   Map<int, double> _weightCache = {};
 
   @override
@@ -85,6 +111,33 @@ class PlayNextNotifier extends Notifier<PlayNextState> {
       lockedIds: const {},
       picks: const [],
       spun: false,
+    );
+    // Homestretch auto-loads on selection — the tabs are the primary control.
+    if (method == FindMethod.focused) spin();
+  }
+
+  /// Switches the focused sub-view and immediately re-fetches picks.
+  void setFocusedView(FocusedView view) {
+    if (state.focusedView == view && state.spun) return;
+    _focusedSpin(targetView: view);
+  }
+
+  /// Updates the displayed threshold value immediately (no re-spin).
+  void updateProgressThreshold(double value) {
+    state = state.copyWith(progressThreshold: value);
+  }
+
+  /// Re-spins with the current threshold (called when the slider is released).
+  void applyProgressThreshold() {
+    if (state.spun && state.method == FindMethod.focused) {
+      _focusedSpin(targetView: state.focusedView);
+    }
+  }
+
+  /// Shows [AppConstants.kPickCount] more games in the focused list.
+  void loadMoreFocused() {
+    state = state.copyWith(
+      focusedDisplayCount: state.focusedDisplayCount + AppConstants.kPickCount,
     );
   }
 
@@ -106,25 +159,27 @@ class PlayNextNotifier extends Notifier<PlayNextState> {
     }
   }
 
-  Future<void> _focusedSpin() async {
-    // First press: load progress. Subsequent presses: swap to the other view.
-    final nextView = !state.spun
+  Future<void> _focusedSpin({FocusedView? targetView}) async {
+    // If a specific view is requested, use it; otherwise first press → progress,
+    // subsequent presses → toggle to the other view.
+    final nextView = targetView ?? (!state.spun
         ? FocusedView.progress
         : (state.focusedView == FocusedView.progress
               ? FocusedView.quickest
-              : FocusedView.progress);
+              : FocusedView.progress));
 
     state = state.copyWith(
       loading: true,
       spun: false,
       focusedView: nextView,
       lockedIds: const {}, // locks don't carry over between deterministic views
+      focusedDisplayCount: AppConstants.kPickCount, // reset pagination on every spin
     );
 
     final auth = await ref.read(authProvider.future);
     final steamId = auth.steamId ?? '';
     final backlog = await ref.read(databaseProvider).gamesDao.getBacklog(steamId);
-    final picks = _pickFocused(backlog, nextView, _kPickCount);
+    final picks = _pickFocused(backlog, nextView, state.progressThreshold);
     state = state.copyWith(picks: picks, loading: false, spun: true);
   }
 
@@ -140,7 +195,7 @@ class PlayNextNotifier extends Notifier<PlayNextState> {
 
     // Preserve valid locked picks; refill all other slots.
     final lockedPicks = state.picks.where((g) => validLockedIds.contains(g.id)).toList();
-    final slotsNeeded = _kPickCount - lockedPicks.length;
+    final slotsNeeded = AppConstants.kPickCount - lockedPicks.length;
     final pool = backlog.where((g) => !validLockedIds.contains(g.id)).toList();
     final weights = _getOrBuildWeights(backlog);
     final newPicks = _weightedSample(pool, slotsNeeded, weights);
@@ -166,37 +221,70 @@ class PlayNextNotifier extends Notifier<PlayNextState> {
       finalPicks = rebuilt;
     }
 
+    final reasons = _buildScoreReasons(finalPicks, weights);
     state = state.copyWith(
       picks: finalPicks,
       loading: false,
       spun: true,
       lockedIds: validLockedIds,
+      scoreReasons: reasons,
     );
   }
 
-  List<Game> _pickFocused(List<Game> pool, FocusedView view, int n) {
+  /// Generates a human-readable score breakdown for each picked game.
+  static Map<int, String> _buildScoreReasons(
+    List<Game> picks,
+    Map<int, double> weights,
+  ) {
+    final now = DateTime.now();
+    final reasons = <int, String>{};
+    for (final g in picks) {
+      final daysOwned = now.difference(g.addedAt).inDays;
+      final hours = g.playtimeMinutes / 60.0;
+      final lp = g.lastPlayedAt;
+      final daysSincePlayed = lp != null ? now.difference(lp).inDays : null;
+      final score = weights[g.id] ?? 0.0;
+
+      final lines = <String>[];
+      lines.add('Score: ${score.toStringAsFixed(2)}');
+      lines.add('Owned for: $daysOwned day${daysOwned == 1 ? '' : 's'}');
+      lines.add('Playtime: ${hours.toStringAsFixed(1)}h');
+      if (daysSincePlayed != null) {
+        lines.add('Last played: $daysSincePlayed day${daysSincePlayed == 1 ? '' : 's'} ago');
+      } else {
+        lines.add('Last played: never');
+      }
+
+      reasons[g.id] = lines.join('\n');
+    }
+    return reasons;
+  }
+
+  List<Game> _pickFocused(List<Game> pool, FocusedView view, double progressThreshold) {
     switch (view) {
       case FocusedView.progress:
         final eligible = <({Game game, double ratio})>[];
         for (final g in pool) {
-          final target = g.targetHours ?? g.targetHoursWithFallback;
+          final target = g.displayTargetHours;
           if (target == null || target <= 0) continue;
           final ratio = (g.playtimeMinutes / 60.0) / target;
-          if (ratio >= 0.5) eligible.add((game: g, ratio: ratio));
+          if (ratio >= progressThreshold) {
+            eligible.add((game: g, ratio: ratio));
+          }
         }
         eligible.sort((a, b) => b.ratio.compareTo(a.ratio));
-        return eligible.take(n).map((e) => e.game).toList();
+        return eligible.map((e) => e.game).toList();
 
       case FocusedView.quickest:
         final withData = <({Game game, double remaining})>[];
         for (final g in pool) {
-          final target = g.targetHours ?? g.targetHoursWithFallback;
+          final target = g.displayTargetHours;
           if (target == null) continue;
           final remaining = target - (g.playtimeMinutes / 60.0);
           if (remaining > 0) withData.add((game: g, remaining: remaining));
         }
         withData.sort((a, b) => a.remaining.compareTo(b.remaining));
-        return withData.take(n).map((e) => e.game).toList();
+        return withData.map((e) => e.game).toList();
     }
   }
 
@@ -211,19 +299,13 @@ class PlayNextNotifier extends Notifier<PlayNextState> {
   }
 
   /// Cheap fingerprint over the fields that affect weight scores.
-  static String _fingerprint(List<Game> games) {
-    final buf = StringBuffer();
-    for (final g in games) {
-      buf
-        ..write(g.id)
-        ..write(':')
-        ..write(g.playtimeMinutes)
-        ..write(':')
-        ..write(g.lastPlayedAt?.millisecondsSinceEpoch ?? 0)
-        ..write(',');
-    }
-    return buf.toString();
-  }
+  static int _fingerprint(List<Game> games) => Object.hashAll(
+        games.map((g) => Object.hash(
+              g.id,
+              g.playtimeMinutes,
+              g.lastPlayedAt?.millisecondsSinceEpoch ?? 0,
+            )),
+      );
 
   /// Computes a weight for every game in [pool].
   ///

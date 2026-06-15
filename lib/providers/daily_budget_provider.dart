@@ -9,7 +9,7 @@ final dailyBudgetProvider = StreamProvider<double>((ref) async* {
   final auth = await ref.watch(authProvider.future);
   final steamId = auth.steamId;
   if (steamId == null) {
-    yield 1.0;
+    yield 0.0;
     return;
   }
   yield* ref
@@ -19,18 +19,20 @@ final dailyBudgetProvider = StreamProvider<double>((ref) async* {
       .map((s) => s.dailyBudgetHours);
 });
 
+/// Exposes [DailyBudgetNotifier.setBudget]. Read-only; use [dailyBudgetProvider]
+/// to watch the current value.
 final dailyBudgetNotifierProvider =
-    NotifierProvider<DailyBudgetNotifier, double>(DailyBudgetNotifier.new);
+    Provider<DailyBudgetNotifier>((ref) => DailyBudgetNotifier(ref));
 
-class DailyBudgetNotifier extends Notifier<double> {
-  @override
-  double build() => 1.0;
+class DailyBudgetNotifier {
+  DailyBudgetNotifier(this._ref);
+  final Ref _ref;
 
   Future<void> setBudget(double hours) async {
-    final auth = await ref.read(authProvider.future);
+    final auth = await _ref.read(authProvider.future);
     final steamId = auth.steamId;
     if (steamId == null) return;
-    await ref.read(databaseProvider).settingsDao.write(
+    await _ref.read(databaseProvider).settingsDao.write(
       AppSettingsCompanion(dailyBudgetHours: Value(hours)),
       steamId,
     );

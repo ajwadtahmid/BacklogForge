@@ -1,10 +1,9 @@
 # Environment variables
+.env
 .env.json
 
-# .env.json should be in following format
-# {
-#   "STEAM_API_KEY": "XXXXXXXXXXXX"
-# }
+# Generated envied file contains obfuscated secrets — rebuild with build_runner.
+lib/env.g.dart
 
 # Miscellaneous
 *.class

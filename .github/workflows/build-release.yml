@@ -211,23 +211,23 @@ jobs:
 
           # Desktop file
           mkdir -p AppDir/usr/share/applications
-          cat > AppDir/usr/share/applications/com.example.backlogforge.desktop << 'EOF'
+          cat > AppDir/usr/share/applications/com.ajwadtahmid.backlogforge.desktop << 'EOF'
           [Desktop Entry]
           Type=Application
           Name=BacklogForge
           Comment=Steam game backlog manager
           Exec=backlogforge
-          Icon=com.example.backlogforge
+          Icon=com.ajwadtahmid.backlogforge
           Categories=Utility;
           Terminal=false
           EOF
 
-          # Icon
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          if [ -f "assets/logos/linux_flathub/icon_256x256.png" ]; then
-            cp assets/logos/linux_flathub/icon_256x256.png \
-              AppDir/usr/share/icons/hicolor/256x256/apps/com.example.backlogforge.png
-          fi
+          # Icons (hicolor theme — multiple sizes for DPI-aware launchers)
+          for size in 64 128 256 512; do
+            mkdir -p AppDir/usr/share/icons/hicolor/${size}x${size}/apps
+            cp assets/logos/flathub/icon_${size}.png \
+              AppDir/usr/share/icons/hicolor/${size}x${size}/apps/com.ajwadtahmid.backlogforge.png
+          done
 
           export VERSION="${GITHUB_REF#refs/tags/v}"
           ./linuxdeploy/linuxdeploy-x86_64.AppImage \

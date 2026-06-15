@@ -1,3 +1,6 @@
+import '../env.dart';
+
 abstract final class ApiConfig {
-  static const backendUrl = 'https://backlogforge.onrender.com';
+  static String get backendUrl => Env.backendUrl;
+  static String get clientToken => Env.clientToken;
 }

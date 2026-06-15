@@ -35,7 +35,7 @@ class ArtworkImage extends StatelessWidget {
       placeholder: (context, url) => Container(
         width: width,
         height: height,
-        color: Colors.grey[800],
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
       ),
       errorWidget: (context, url, error) => Image.asset(
         _kNoArtwork,

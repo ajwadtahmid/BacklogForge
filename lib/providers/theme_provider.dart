@@ -7,6 +7,9 @@ import 'database_provider.dart';
 import 'auth_provider.dart';
 
 const _kThemeKey = 'theme';
+const _kNavPositionKey = 'nav_position';
+
+enum NavigationPosition { top, left, right }
 
 /// Injected via [ProviderScope.overrides] in main() before runApp, so the
 /// value is always available synchronously to [themeProvider].
@@ -24,8 +27,9 @@ class ThemeNotifier extends Notifier<ThemeMode> {
     if (raw == null) {
       // No cached value yet — sync from DB after auth resolves.
       Future.microtask(_syncFromDb);
+      return ThemeMode.system;
     }
-    return raw == 'light' ? ThemeMode.light : ThemeMode.dark;
+    return _decode(raw);
   }
 
   Future<void> setTheme(ThemeMode mode) async {
@@ -53,15 +57,50 @@ class ThemeNotifier extends Notifier<ThemeMode> {
       final settings = await ref.read(databaseProvider).settingsDao.read(steamId);
       final prefs = ref.read(sharedPrefsProvider);
       await prefs.setString(_kThemeKey, settings.theme);
-      state = settings.theme == 'light' ? ThemeMode.light : ThemeMode.dark;
+      state = _decode(settings.theme);
     } catch (_) {
       // DB not ready yet — harmless; prefs will be populated on next setTheme.
     }
   }
 
-  static String _encode(ThemeMode mode) =>
-      mode == ThemeMode.light ? 'light' : 'dark';
+  static ThemeMode _decode(String raw) => switch (raw) {
+        'light' => ThemeMode.light,
+        'dark' => ThemeMode.dark,
+        _ => ThemeMode.system,
+      };
+
+  static String _encode(ThemeMode mode) => switch (mode) {
+        ThemeMode.light => 'light',
+        ThemeMode.dark => 'dark',
+        ThemeMode.system => 'system',
+      };
 }
 
 final themeProvider =
     NotifierProvider<ThemeNotifier, ThemeMode>(ThemeNotifier.new);
+
+class NavigationPositionNotifier extends Notifier<NavigationPosition> {
+  @override
+  NavigationPosition build() {
+    final raw = ref.read(sharedPrefsProvider).getString(_kNavPositionKey);
+    return switch (raw) {
+      'left' => NavigationPosition.left,
+      'right' => NavigationPosition.right,
+      _ => NavigationPosition.top,
+    };
+  }
+
+  Future<void> setPosition(NavigationPosition position) async {
+    state = position;
+    final str = switch (position) {
+      NavigationPosition.top => 'top',
+      NavigationPosition.left => 'left',
+      NavigationPosition.right => 'right',
+    };
+    await ref.read(sharedPrefsProvider).setString(_kNavPositionKey, str);
+  }
+}
+
+final navigationPositionProvider =
+    NotifierProvider<NavigationPositionNotifier, NavigationPosition>(
+        NavigationPositionNotifier.new);

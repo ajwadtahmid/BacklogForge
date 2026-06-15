@@ -4,7 +4,6 @@ import '../services/database/app_database.dart';
 import '../models/game_status.dart';
 import '../models/play_style.dart';
 import './database_provider.dart';
-import './provider_invalidation.dart';
 
 /// Streams live updates for a single game directly from the DB.
 /// The detail screen watches this so it auto-refreshes after any edit
@@ -15,7 +14,8 @@ final gameDetailProvider = StreamProvider.family<Game?, int>((ref, id) {
       .watchSingleOrNull();
 });
 
-/// Performs mutations on individual games and invalidates all dependent providers.
+/// Performs mutations on individual games. List and stat providers update
+/// automatically via Drift's reactive watch streams — no manual invalidation.
 class GameActions {
   GameActions(this.db, this.ref);
   final AppDatabase db;
@@ -39,13 +39,10 @@ class GameActions {
         completedAt: next == GameStatus.completed
             ? Value(DateTime.now())
             : preserveCompletedAt
-                // Stamp completedAt if it was null — old auto-completed games
-                // may have null here, which would satisfy the backlog query.
                 ? Value(g.completedAt ?? DateTime.now())
                 : const Value(null),
       ),
     );
-    invalidateAll();
   }
 
   /// Updates the play-style preference for [g], which determines which HLTB
@@ -54,7 +51,6 @@ class GameActions {
     await (db.update(db.games)..where((tbl) => tbl.id.equals(g.id))).write(
       GamesCompanion(playStyle: Value(style.name)),
     );
-    invalidateAll();
   }
 
   /// Overrides the recorded playtime for [g] and recalculates completion
@@ -63,8 +59,7 @@ class GameActions {
     await (db.update(db.games)..where((tbl) => tbl.id.equals(g.id))).write(
       GamesCompanion(playtimeMinutes: Value((hours * 60).round())),
     );
-    await db.gamesDao.recalculateAllStatuses(g.steamId);
-    invalidateAll();
+    await db.gamesDao.recalculateStatus(g);
   }
 
   /// Overwrites the HLTB time-to-beat estimates and sets manualOverride so the
@@ -85,15 +80,27 @@ class GameActions {
         manualOverride: const Value(true),
       ),
     );
-    await db.gamesDao.recalculateAllStatuses(g.steamId);
-    invalidateAll();
+    await db.gamesDao.recalculateStatus(g);
+  }
+
+  /// Saves a personal note for [g]. Pass null to clear.
+  Future<void> setNotes(Game g, String? notes) async {
+    await (db.update(db.games)..where((tbl) => tbl.id.equals(g.id))).write(
+      GamesCompanion(notes: Value(notes?.isEmpty == true ? null : notes)),
+    );
+  }
+
+  /// Sets the personal rating (1–10) for [g]. Pass null to clear.
+  Future<void> setRating(Game g, int? rating) async {
+    await (db.update(db.games)..where((tbl) => tbl.id.equals(g.id))).write(
+      GamesCompanion(rating: Value(rating)),
+    );
   }
 
   /// Permanently removes a game from the library. Only callable on manually
   /// added games (negative appId); Steam games are managed by sync.
   Future<void> deleteGame(Game g) async {
     await (db.delete(db.games)..where((tbl) => tbl.id.equals(g.id))).go();
-    invalidateAll();
   }
 
   /// Marks all [games] as completed with the current timestamp.
@@ -102,12 +109,11 @@ class GameActions {
     final ids = games.map((g) => g.id).toList();
     await (db.update(db.games)..where((g) => g.id.isIn(ids))).write(
       GamesCompanion(
-        status: const Value('completed'),
+        status: Value(GameStatus.completed.name),
         manualOverride: const Value(true),
         completedAt: Value(DateTime.now()),
       ),
     );
-    invalidateAll();
   }
 
   /// Marks all [games] as playing.
@@ -121,12 +127,11 @@ class GameActions {
     final ids = games.map((g) => g.id).toList();
     await (db.update(db.games)..where((g) => g.id.isIn(ids))).write(
       GamesCompanion(
-        status: const Value('playing'),
+        status: Value(GameStatus.playing.name),
         manualOverride: const Value(true),
         completedAt: preserveCompletedAt ? const Value.absent() : const Value(null),
       ),
     );
-    invalidateAll();
   }
 
   /// Marks replaying games (status='playing', completedAt set) back to
@@ -135,12 +140,11 @@ class GameActions {
     if (games.isEmpty) return;
     final ids = games.map((g) => g.id).toList();
     await (db.update(db.games)..where((g) => g.id.isIn(ids))).write(
-      const GamesCompanion(
-        status: Value('completed'),
-        manualOverride: Value(true),
+      GamesCompanion(
+        status: Value(GameStatus.completed.name),
+        manualOverride: const Value(true),
       ),
     );
-    invalidateAll();
   }
 
   /// Moves all [games] back to the backlog, clearing completedAt.
@@ -148,13 +152,12 @@ class GameActions {
     if (games.isEmpty) return;
     final ids = games.map((g) => g.id).toList();
     await (db.update(db.games)..where((g) => g.id.isIn(ids))).write(
-      const GamesCompanion(
-        status: Value('backlog'),
-        manualOverride: Value(true),
-        completedAt: Value(null),
+      GamesCompanion(
+        status: Value(GameStatus.backlog.name),
+        manualOverride: const Value(true),
+        completedAt: const Value(null),
       ),
     );
-    invalidateAll();
   }
 
   /// Deletes only manually-added games (appId < 0) from [games].
@@ -165,12 +168,9 @@ class GameActions {
     if (deletable.isNotEmpty) {
       final ids = deletable.map((g) => g.id).toList();
       await (db.delete(db.games)..where((g) => g.id.isIn(ids))).go();
-      invalidateAll();
     }
     return skipped;
   }
-
-  void invalidateAll() => invalidateLibraryProviders(ref);
 }
 
 final gameActionsProvider = Provider((ref) {

@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart';
+import 'package:rxdart/rxdart.dart';
 import 'app_database.dart';
 import 'tables.dart';
+import '../../constants.dart';
 import '../../models/game.dart';
 import '../../models/game_status.dart';
 
@@ -20,14 +22,19 @@ typedef BacklogAnalysis = ({
 class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
   StatsDao(super.db);
 
-  /// All per-status counts and total playtime in a single SQL pass.
-  Future<({int backlog, int completed, int playing, double totalHours})>
+  /// All per-status counts, total playtime, and average completion time in a
+  /// single SQL pass.
+  ///
+  /// A game re-marked as "playing" after completion (status='playing',
+  /// completed_at NOT NULL) counts as completed, matching the completed-tab
+  /// filter — so the completion grade doesn't drop when a user replays a game.
+  Future<({int backlog, int completed, int playing, double totalHours, double? avgCompletionHours})>
       _aggregateCounts(String steamId) async {
     const backlogExpr = CustomExpression<int>(
-      "COALESCE(SUM(CASE WHEN status IN ('backlog','playing') THEN 1 ELSE 0 END),0)",
+      "COALESCE(SUM(CASE WHEN status IN ('backlog','playing') AND completed_at IS NULL THEN 1 ELSE 0 END),0)",
     );
     const completedExpr = CustomExpression<int>(
-      "COALESCE(SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END),0)",
+      "COALESCE(SUM(CASE WHEN status='completed' OR (status='playing' AND completed_at IS NOT NULL) THEN 1 ELSE 0 END),0)",
     );
     const playingExpr = CustomExpression<int>(
       "COALESCE(SUM(CASE WHEN status='playing' THEN 1 ELSE 0 END),0)",
@@ -35,8 +42,14 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
     const minutesExpr = CustomExpression<int>(
       "COALESCE(SUM(playtime_minutes),0)",
     );
+    // AVG ignores NULLs — CASE returns NULL for non-completed rows so this
+    // computes the mean only over completed games. Returns NULL if none exist.
+    const avgCompletionExpr = CustomExpression<double>(
+      "AVG(CASE WHEN status='completed' OR (status='playing' AND completed_at IS NOT NULL)"
+      " THEN CAST(playtime_minutes AS REAL) / 60.0 ELSE NULL END)",
+    );
     final row = await (selectOnly(games)
-          ..addColumns([backlogExpr, completedExpr, playingExpr, minutesExpr])
+          ..addColumns([backlogExpr, completedExpr, playingExpr, minutesExpr, avgCompletionExpr])
           ..where(games.steamId.equals(steamId)))
         .getSingle();
     return (
@@ -44,6 +57,7 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
       completed: row.read(completedExpr) ?? 0,
       playing: row.read(playingExpr) ?? 0,
       totalHours: (row.read(minutesExpr) ?? 0) / 60.0,
+      avgCompletionHours: row.read(avgCompletionExpr),
     );
   }
 
@@ -55,6 +69,7 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
         int completed,
         int playing,
         double totalHours,
+        double? avgCompletionHours,
         int completedQuarterly,
         BacklogAnalysis analysis,
       })> computeStats(String steamId) async {
@@ -70,22 +85,10 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
       completed: counts.completed,
       playing: counts.playing,
       totalHours: counts.totalHours,
+      avgCompletionHours: counts.avgCompletionHours,
       completedQuarterly: quarterly,
       analysis: analysis,
     );
-  }
-
-  /// Number of games with status backlog or playing.
-  Future<int> backlogCount(String steamId) async {
-    final count = games.id.count();
-    final query = selectOnly(games)
-      ..addColumns([count])
-      ..where(
-        games.status.isIn([GameStatus.backlog.name, GameStatus.playing.name]) &
-            games.steamId.equals(steamId),
-      );
-    final row = await query.getSingle();
-    return row.read(count) ?? 0;
   }
 
   /// Single-pass analysis of all backlog/playing games. Returns:
@@ -95,10 +98,14 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
   /// - halfwayDone: games with progress ≥ 50% (requires HLTB data)
   /// - hltbCovered/hltbTotal: coverage numerator/denominator
   Future<BacklogAnalysis> backlogStats(String steamId) async {
+    // Mirror the backlog filter: exclude completed-but-replaying games so the
+    // hours-remaining and progress buckets reflect only genuinely unfinished work.
     final rows = await (select(games)
           ..where(
             (g) =>
-                g.status.isIn([GameStatus.backlog.name, GameStatus.playing.name]) &
+                (g.status.equals(GameStatus.backlog.name) |
+                    (g.status.equals(GameStatus.playing.name) &
+                        g.completedAt.isNull())) &
                 g.steamId.equals(steamId),
           ))
         .get();
@@ -109,7 +116,7 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
     for (final g in rows) {
       if (g.playtimeMinutes == 0) neverStarted++;
 
-      final target = g.targetHours ?? g.targetHoursWithFallback;
+      final target = g.displayTargetHours;
       if (target == null || target <= 0) continue;
 
       hltbCovered++;
@@ -117,8 +124,10 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
       final ratio = played / target;
 
       hoursRemaining += (target - played).clamp(0.0, double.infinity);
-      if (g.playtimeMinutes > 0 && ratio < 0.10) barelyPlayed++;
-      if (ratio >= 0.50) halfwayDone++;
+      if (g.playtimeMinutes > 0 && ratio < AppConstants.kBarelyPlayedRatio) {
+        barelyPlayed++;
+      }
+      if (ratio >= AppConstants.kHalfwayRatio) halfwayDone++;
     }
 
     return (
@@ -131,15 +140,54 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
     );
   }
 
-  /// Total hours played across all games for this user.
-  Future<double> totalHoursPlayed(String steamId) async {
-    final total = games.playtimeMinutes.sum();
-    final query = selectOnly(games)
-      ..addColumns([total])
-      ..where(games.steamId.equals(steamId));
-    final row = await query.getSingle();
-    return ((row.read(total) ?? 0) / 60.0);
+  /// Reactive stream of computed stats. Re-emits whenever any game row for
+  /// [steamId] changes; the [StreamProvider] consumer maps the raw record to
+  /// [GameStats]. Debounced so rapid bulk mutations (import, sync) collapse
+  /// into a single recompute.
+  Stream<({int backlog, int completed, int playing, double totalHours, double? avgCompletionHours, int completedQuarterly, BacklogAnalysis analysis})>
+      watchComputedStats(String steamId) {
+    return (select(games)..where((g) => g.steamId.equals(steamId)))
+        .watch()
+        .debounceTime(const Duration(milliseconds: 300))
+        .asyncMap((_) => computeStats(steamId));
   }
+
+  /// Per-month completion counts, sorted oldest-first.
+  /// Fetches all completed games for the user and aggregates in Dart to avoid
+  /// relying on SQLite date-format details (Drift stores DateTime as INTEGER seconds).
+  Future<List<({int year, int month, int count})>> completedByMonth(
+      String steamId) async {
+    // Mirror the completedExpr logic: include replaying games (status='playing'
+    // with completedAt set) so the chart stays consistent with all other stats.
+    final rows = await (select(games)
+          ..where((g) =>
+              g.steamId.equals(steamId) &
+              (g.status.equals(GameStatus.completed.name) |
+               (g.status.equals(GameStatus.playing.name) & g.completedAt.isNotNull())) &
+              g.completedAt.isNotNull()))
+        .get();
+
+    final buckets = <(int, int), int>{};
+    for (final g in rows) {
+      final dt = g.completedAt!;
+      final key = (dt.year, dt.month);
+      buckets[key] = (buckets[key] ?? 0) + 1;
+    }
+
+    return (buckets.entries
+          .map((e) => (year: e.key.$1, month: e.key.$2, count: e.value))
+          .toList())
+      ..sort((a, b) =>
+          a.year != b.year ? a.year.compareTo(b.year) : a.month.compareTo(b.month));
+  }
+
+  /// Reactive version — re-emits whenever any game changes, debounced.
+  Stream<List<({int year, int month, int count})>> watchCompletedByMonth(
+          String steamId) =>
+      (select(games)..where((g) => g.steamId.equals(steamId)))
+          .watch()
+          .debounceTime(const Duration(milliseconds: 300))
+          .asyncMap((_) => completedByMonth(steamId));
 
   /// Number of games completed in the last four months (current month + prior 3).
   Future<int> completedLastFourMonths(String steamId) async {
@@ -152,32 +200,11 @@ class StatsDao extends DatabaseAccessor<AppDatabase> with _$StatsDaoMixin {
     final query = selectOnly(games)
       ..addColumns([count])
       ..where(
-        games.status.equals(GameStatus.completed.name) &
+        (games.status.equals(GameStatus.completed.name) |
+            (games.status.equals(GameStatus.playing.name) & games.completedAt.isNotNull())) &
             games.steamId.equals(steamId) &
             games.completedAt.isBiggerOrEqualValue(startOfWindow),
       );
-    final row = await query.getSingle();
-    return row.read(count) ?? 0;
-  }
-
-  /// Total number of completed games.
-  Future<int> completedCount(String steamId) async {
-    final count = games.id.count();
-    final query = selectOnly(games)
-      ..addColumns([count])
-      ..where(
-        games.status.equals(GameStatus.completed.name) & games.steamId.equals(steamId),
-      );
-    final row = await query.getSingle();
-    return row.read(count) ?? 0;
-  }
-
-  /// Number of games currently in the playing state.
-  Future<int> playingCount(String steamId) async {
-    final count = games.id.count();
-    final query = selectOnly(games)
-      ..addColumns([count])
-      ..where(games.status.equals(GameStatus.playing.name) & games.steamId.equals(steamId));
     final row = await query.getSingle();
     return row.read(count) ?? 0;
   }

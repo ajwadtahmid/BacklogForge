@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="outerFlame" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#4A2FD0"/>
+      <stop offset="100%" stop-color="#A78BFA"/>
+    </linearGradient>
+    <linearGradient id="innerFlame" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#7C5EF8"/>
+      <stop offset="100%" stop-color="#EDE9FE"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="#0D0917"/>
+
+  <!--
+    Outer flame.
+    Tip at (256, 100). Control points at same x ensure vertical tangent → sharp tip.
+    Widest around y=270: x from ~150 to ~362 (width ~212).
+    Bottom rounds at (256, 392).
+  -->
+  <path d="
+    M 256 100
+    C 256 145, 365 205, 362 272
+    C 358 342, 316 392, 256 392
+    C 196 392, 154 342, 150 272
+    C 147 205, 256 145, 256 100
+    Z
+  " fill="url(#outerFlame)"/>
+
+  <!--
+    Inner flame — same form, roughly 55% the size, centered slightly higher.
+    Tip at (256, 175). Bottom at (256, 370).
+  -->
+  <path d="
+    M 256 175
+    C 256 208, 312 248, 310 296
+    C 308 338, 288 368, 256 370
+    C 224 368, 204 338, 202 296
+    C 200 248, 256 208, 256 175
+    Z
+  " fill="url(#innerFlame)" opacity="0.65"/>
+</svg>

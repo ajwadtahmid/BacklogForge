@@ -16,10 +16,16 @@ class AppLogger with WidgetsBindingObserver {
 
   IOSink? _sink;
 
+  static const int _kMaxLogBytes = 2 * 1024 * 1024; // 2 MB
+
   Future<void> init() async {
     try {
       final dir = await getApplicationSupportDirectory();
       final file = File('${dir.path}/backlogforge.log');
+      // Truncate the log if it has grown too large so it doesn't fill storage.
+      if (await file.exists() && await file.length() > _kMaxLogBytes) {
+        await file.writeAsBytes(const [], mode: FileMode.write);
+      }
       _sink = file.openWrite(mode: FileMode.append);
       WidgetsBinding.instance.addObserver(this);
     } catch (_) {
@@ -31,12 +37,11 @@ class AppLogger with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached) {
-      _sink?.flush();
+      _flush();
     }
   }
 
-  /// Flushes buffered log data to disk immediately.
-  Future<void> flush() => _sink?.flush() ?? Future.value();
+  Future<void> _flush() => _sink?.flush() ?? Future.value();
 
   void _write(String level, String message, [Object? error, StackTrace? stackTrace]) {
     final now = DateTime.now().toIso8601String();
@@ -48,8 +53,6 @@ class AppLogger with WidgetsBindingObserver {
     _sink?.writeln(line);
   }
 
-  void debug(String message) => _write('DEBUG', message);
-  void info(String message) => _write('INFO', message);
   void warning(String message, [Object? error]) => _write('WARN', message, error);
   void error(String message, [Object? error, StackTrace? stackTrace]) =>
       _write('ERROR', message, error, stackTrace);

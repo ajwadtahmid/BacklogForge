@@ -1,15 +1,20 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../constants.dart';
 import '../models/game_search_result.dart';
 import '../models/time_to_beat.dart';
 import 'api_config.dart';
+import 'sync_exception.dart';
 
 /// Communicates with the self-hosted HowLongToBeat proxy on Render.
 /// The proxy wraps the howlongtobeatpy Python library so the app stays
 /// cross-platform without any native dependencies.
 class HltbService {
-  static const _baseUrl = ApiConfig.backendUrl;
-  static const _timeout = Duration(seconds: 15);
+  static final _baseUrl = ApiConfig.backendUrl;
+  static final _headers = ApiConfig.clientToken.isNotEmpty
+      ? {'X-Client-Token': ApiConfig.clientToken}
+      : const <String, String>{};
+  static const _timeout = AppConstants.kHltbTimeout;
 
   /// Returns up to [limit] search results matching [query].
   Future<List<GameSearchResult>> search(String query, {int limit = 10}) async {
@@ -18,20 +23,21 @@ class HltbService {
           Uri.parse('$_baseUrl/search').replace(
             queryParameters: {'q': query, 'limit': '$limit'},
           ),
+          headers: _headers,
         )
         .timeout(_timeout);
 
     if (res.statusCode != 200) {
-      throw Exception('HLTB search failed (${res.statusCode})');
+      throw HltbSearchException('status ${res.statusCode}');
     }
 
     final dynamic decoded;
     try {
       decoded = jsonDecode(res.body);
     } catch (_) {
-      throw Exception('HLTB search failed: invalid response');
+      throw const HltbSearchException('invalid response');
     }
-    if (decoded is! List) throw Exception('HLTB search failed: unexpected response format');
+    if (decoded is! List) throw const HltbSearchException('unexpected response format');
     return decoded
         .map(
           (item) => GameSearchResult(
@@ -66,18 +72,19 @@ class HltbService {
           Uri.parse('$_baseUrl/lookup').replace(
             queryParameters: {'q': gameName},
           ),
+          headers: _headers,
         )
         .timeout(_timeout);
 
     if (res.statusCode != 200) {
-      throw Exception('HLTB lookup failed (${res.statusCode})');
+      throw HltbLookupException('status ${res.statusCode}');
     }
 
     final dynamic body;
     try {
       body = jsonDecode(res.body);
     } catch (_) {
-      throw Exception('HLTB lookup failed: invalid response');
+      throw const HltbLookupException('invalid response');
     }
     if (body == null) return null;
 
