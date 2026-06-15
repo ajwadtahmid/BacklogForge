@@ -34,6 +34,7 @@ class BacklogForgeApp extends ConsumerWidget {
       theme: lightTheme,
       darkTheme: darkTheme,
       routerConfig: router,
+      debugShowCheckedModeBanner: false,
     );
   }
 }
