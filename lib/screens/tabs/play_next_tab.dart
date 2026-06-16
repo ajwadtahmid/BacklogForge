@@ -383,7 +383,13 @@ class _PicksSection extends ConsumerWidget {
         final lp = game.lastPlayedAt;
         final String playedPart;
         if (lp == null) {
-          playedPart = 'Never played';
+          // Fallback: if playtimeMinutes > 0 but lastPlayedAt is null (manually added/edited),
+          // don't say "Never played"
+          if (game.playtimeMinutes > 0) {
+            playedPart = '';
+          } else {
+            playedPart = 'Never played';
+          }
         } else {
           final days = DateTime.now().difference(lp).inDays;
           if (days == 0) {
@@ -395,14 +401,15 @@ class _PicksSection extends ConsumerWidget {
           }
         }
         final target = game.displayTargetHours;
-        if (target == null || target <= 0) return playedPart;
+        if (target == null || target <= 0) return playedPart.isEmpty ? 'No playtime data' : playedPart;
         final played = game.playtimeMinutes / 60.0;
         if (played <= 0) {
-          return '$playedPart  |  ~${target.toStringAsFixed(1)}h to beat';
+          return '${playedPart.isEmpty ? 'Never played' : playedPart}  |  ~${target.toStringAsFixed(1)}h to beat';
         }
         final pct = ((played / target) * 100).clamp(0.0, 100.0);
         final rem = (target - played).clamp(0.0, double.infinity);
-        return '$playedPart  |  ${pct.toStringAsFixed(0)}% completed  |  ~${rem.toStringAsFixed(1)}h left';
+        final progressStr = '${pct.toStringAsFixed(0)}% completed  |  ~${rem.toStringAsFixed(1)}h left';
+        return playedPart.isEmpty ? progressStr : '$playedPart  |  $progressStr';
 
       case FindMethod.focused:
         switch (focusedView) {
