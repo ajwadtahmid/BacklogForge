@@ -47,13 +47,9 @@ class AuthNotifier extends AsyncNotifier<AuthState> {
 
   /// Persists the Steam ID to secure storage, seeds settings for this user if
   /// this is their first sign-in, then updates auth state.
-  /// For guest users, skips secure storage persistence.
   Future<void> completeSignIn(String steamId) async {
     try {
-      final isGuest = steamId == AuthNotifier.guestSteamId;
-      if (!isGuest) {
-        await _secureStorage.write(key: _steamIdKey, value: steamId);
-      }
+      await _secureStorage.write(key: _steamIdKey, value: steamId);
       final db = ref.read(databaseProvider);
       await db.settingsDao.seedIfAbsent(steamId);
       state = AsyncValue.data(AuthState.signedIn(steamId));

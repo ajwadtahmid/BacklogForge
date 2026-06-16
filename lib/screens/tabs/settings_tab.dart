@@ -215,6 +215,16 @@ class SettingsTab extends ConsumerWidget {
                 subtitle: const Text('Restore from a JSON backup'),
                 onTap: () => _import(context, ref),
               ),
+              const Divider(height: 1),
+              ListTile(
+                leading: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+                title: Text(
+                  'Clear All Data',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                subtitle: const Text('Permanently delete all games and settings'),
+                onTap: () => _showClearDataConfirmation(context, ref),
+              ),
             ],
           ),
         ),
@@ -420,6 +430,61 @@ class SettingsTab extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Import failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showClearDataConfirmation(BuildContext context, WidgetRef ref) async {
+    final auth = ref.read(authProvider).asData?.value;
+    final steamId = auth?.steamId;
+    if (steamId == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clear All Data?'),
+        content: const Text(
+          'This will permanently delete all games, settings, and data. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: const Text('Clear All Data'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      final db = ref.read(databaseProvider);
+      final games = await db.gamesDao.getAllGames(steamId);
+
+      // Delete all games for this user
+      await db.transaction(() async {
+        for (final game in games) {
+          await (db.delete(db.games)..where((g) => g.id.equals(game.id))).go();
+        }
+      });
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('All data cleared')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to clear data: $e')),
         );
       }
     }

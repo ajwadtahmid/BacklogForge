@@ -144,9 +144,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   OutlinedButton(
                     onPressed: _busy
                         ? null
-                        : () => ref
-                            .read(authProvider.notifier)
-                            .completeSignIn(AuthNotifier.guestSteamId),
+                        : () async {
+                            setState(() => _busy = true);
+                            try {
+                              await ref
+                                  .read(authProvider.notifier)
+                                  .completeSignIn(AuthNotifier.guestSteamId);
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error: $e')),
+                                );
+                              }
+                            } finally {
+                              if (mounted) setState(() => _busy = false);
+                            }
+                          },
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(44),
                     ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'providers/auth_provider.dart';
+import 'providers/database_provider.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/library_screen.dart';
 import 'screens/game_detail_screen.dart';

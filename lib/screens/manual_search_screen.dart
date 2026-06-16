@@ -22,6 +22,7 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
   late final TextEditingController _searchController;
   Timer? _debounce;
   String _addingGameName = '';
+  Set<String> _addedGames = {};
 
   @override
   void initState() {
@@ -30,7 +31,24 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
     // Clear any results left over from a previous visit to this screen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(searchProvider.notifier).clear();
+      _loadAddedGames();
     });
+  }
+
+  Future<void> _loadAddedGames() async {
+    try {
+      final db = ref.read(databaseProvider);
+      final auth = await ref.read(authProvider.future);
+      final steamId = auth.steamId ?? '';
+      final games = await db.gamesDao.getAllGames(steamId);
+      if (mounted) {
+        setState(() {
+          _addedGames = games.map((g) => HltbService.normalise(g.name)).toSet();
+        });
+      }
+    } catch (e) {
+      AppLogger.instance.error('Failed to load added games', e);
+    }
   }
 
   @override
@@ -124,7 +142,9 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Added "$gameName" to backlog')),
         );
-        context.pop();
+        setState(() {
+          _addedGames.add(HltbService.normalise(gameName));
+        });
       }
     } catch (e, st) {
       AppLogger.instance.error('Failed to add game "$gameName"', e, st);
@@ -135,6 +155,55 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
       }
     } finally {
       if (mounted) setState(() => _addingGameName = '');
+    }
+  }
+
+  Future<void> _showRemoveConfirmation(String gameName) async {
+    final shouldRemove = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove Game'),
+        content: Text('Remove "$gameName" from your backlog?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldRemove == true && mounted) {
+      try {
+        final db = ref.read(databaseProvider);
+        final auth = await ref.read(authProvider.future);
+        final steamId = auth.steamId ?? '';
+
+        final game = await db.gamesDao.findByName(gameName, steamId);
+        if (game != null) {
+          await (db.delete(db.games)..where((g) => g.id.equals(game.id))).go();
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Removed "$gameName" from backlog')),
+          );
+          setState(() {
+            _addedGames.remove(HltbService.normalise(gameName));
+          });
+        }
+      } catch (e, st) {
+        AppLogger.instance.error('Failed to remove game "$gameName"', e, st);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to remove game. Please try again.')),
+          );
+        }
+      }
     }
   }
 
@@ -165,21 +234,37 @@ class _ManualSearchScreenState extends ConsumerState<ManualSearchScreen> {
             child: HltbSearchBody(
               searchState: searchState,
               query: _searchController.text,
-              trailingBuilder: (result) => _addingGameName == result.name
-                  ? const SizedBox(
-                      width: 40,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : IconButton(
-                      icon: const Icon(Icons.add),
-                      onPressed: () => _addGameToBacklog(
+              trailingBuilder: (result) {
+                final isAdded = _addedGames.contains(HltbService.normalise(result.name));
+                if (_addingGameName == result.name) {
+                  return const SizedBox(
+                    width: 40,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  );
+                }
+                if (isAdded) {
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.check, color: Colors.grey),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.grey),
+                        onPressed: () => _showRemoveConfirmation(result.name),
+                      ),
+                    ],
+                  );
+                }
+                return IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: () => _addGameToBacklog(
                         result.name,
                         result.essentialHours,
                         result.extendedHours,
                         result.completionistHours,
                         artworkUrl: result.artworkUrl,
                       ),
-                    ),
+                );
+              },
             ),
           ),
         ],

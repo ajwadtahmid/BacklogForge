@@ -12,6 +12,7 @@ import '../providers/daily_budget_provider.dart';
 import '../services/database/app_database.dart';
 import '../services/steam_service.dart';
 import '../theme.dart';
+import '../util/platform.dart';
 import '../util/ui_tokens.dart';
 import '../widgets/artwork_image.dart';
 import '../widgets/dialogs/game_detail_dialogs.dart';
@@ -575,31 +576,54 @@ class _GameDetailScreenState extends ConsumerState<GameDetailScreen> {
 
   Widget _buildRatingSection(
       BuildContext context, Game game, ColorScheme colors) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+    final tt = Theme.of(context).textTheme;
+    final isMobile = context.isMobileOS;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SectionLabel('Rating'),
-            const SizedBox(width: 8),
-            if (game.rating != null)
-              Text(
-                '${game.rating}/10',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: colors.onSurfaceVariant),
+            Row(
+              children: [
+                Icon(Icons.star_outline, size: 16, color: colors.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Rating', style: tt.titleSmall)),
+                Text(
+                  game.rating != null ? '${game.rating}/10' : 'Not set',
+                  style: tt.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: game.rating != null ? colors.primary : colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
               ),
+              child: Slider(
+                value: (game.rating?.toDouble() ?? 0),
+                min: 0,
+                max: 10,
+                divisions: 10,
+                onChanged: _saving
+                    ? null
+                    : (val) => _withSaving(
+                          () => ref.read(gameActionsProvider).setRating(
+                                game,
+                                val == 0 ? null : val.toInt(),
+                              ),
+                        ),
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: 6),
-        RatingRow(
-          rating: game.rating,
-          saving: _saving,
-          onRatingChanged: (val) =>
-              _withSaving(() => ref.read(gameActionsProvider).setRating(game, val)),
-        ),
-      ],
+      ),
     );
   }
 
