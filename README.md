@@ -194,6 +194,7 @@ python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 
 Have a question or found a bug? Let us know:
 
+- **Email**: [support@ajwadtahmid.com](mailto:support@ajwadtahmid.com)
 - **Bug reports & features**: [GitHub Issues](https://github.com/ajwadtahmid/backlogforge/issues)
 - **Ideas & discussions**: [GitHub Discussions](https://github.com/ajwadtahmid/backlogforge/discussions)
 
@@ -245,3 +246,5 @@ Yes. Use the manual search to find any game on HowLongToBeat and add it to your 
 ## License
 
 [GNU General Public License v3.0](LICENSE)
+
+---
